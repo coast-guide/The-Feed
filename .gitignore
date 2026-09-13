@@ -4,3 +4,6 @@ CLAUDE.local.md
 
 # Lab secrets; commit .env.example instead
 .env
+
+# Python bytecode from labs run on the host
+__pycache__/

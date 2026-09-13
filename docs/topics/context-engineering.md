@@ -10,6 +10,7 @@ Understand each component of the [Hybrid Context Engine HLD](../hybrid-context-e
 
 | # | Concept | Why it matters | HLD | Status |
 | --- | --- | --- | --- | --- |
+| 0 | Interfaces and adapters | The HLD's first principle: every component is an adapter behind a port, which keeps each choice reversible | [§3](../hybrid-context-engine.html#principles), [§4.1](../hybrid-context-engine.html#interfaces) | in progress: [lab 01](../../labs/01-adapter-pattern/README.md) |
 | 1 | Question classes | Shows why top-k retrieval alone fails, and what each kind of question needs | [§2](../hybrid-context-engine.html#questions) | not started |
 | 2 | Hybrid retrieval | Lexical plus dense search, fused, is the core retrieval loop | [§5.4](../hybrid-context-engine.html#projections) | not started |
 | 3 | Reranking | Added +13.2 nDCG@10 to ViDoRe V3's text pipeline | [§5.5](../hybrid-context-engine.html#serving) | not started |
