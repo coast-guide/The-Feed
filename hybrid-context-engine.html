@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}</style>
+<title>Hybrid Context Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@500;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root {
+  --bg: #F3F5F4;
+  --surface: #FFFFFF;
+  --surface-2: #E9EEEC;
+  --ink: #131E1B;
+  --muted: #55625E;
+  --line: #D3DAD7;
+  --line-strong: #A6B2AD;
+  --accent: #2447C8;
+  --accent-soft: #E4E9FB;
+  --stable: #1C7A4B;
+  --stable-soft: #DFF0E6;
+  --bake: #8A5B00;
+  --bake-soft: #F5EAD2;
+  --quarter: #5B49A8;
+  --quarter-soft: #ECE8F8;
+  --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1312;
+    --surface: #141C1A;
+    --surface-2: #1B2522;
+    --ink: #E1E8E5;
+    --muted: #97A5A0;
+    --line: #27322F;
+    --line-strong: #43514C;
+    --accent: #9AACFF;
+    --accent-soft: #1D2547;
+    --stable: #72CF9E;
+    --stable-soft: #14301F;
+    --bake: #E3B85C;
+    --bake-soft: #372B12;
+    --quarter: #BBAEF6;
+    --quarter-soft: #2A2445;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1312;
+  --surface: #141C1A;
+  --surface-2: #1B2522;
+  --ink: #E1E8E5;
+  --muted: #97A5A0;
+  --line: #27322F;
+  --line-strong: #43514C;
+  --accent: #9AACFF;
+  --accent-soft: #1D2547;
+  --stable: #72CF9E;
+  --stable-soft: #14301F;
+  --bake: #E3B85C;
+  --bake-soft: #372B12;
+  --quarter: #BBAEF6;
+  --quarter-soft: #2A2445;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  font-optical-sizing: auto;
+}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font-family: var(--mono); font-size: 0.84em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+strong { font-weight: 600; }
+
+.shell {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding-inline: clamp(16px, 4vw, 48px);
+  padding-block: 44px 96px;
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 56px;
+}
+
+/* contents rail */
+.toc {
+  position: sticky;
+  top: 28px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow: auto;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.toc .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc ol ol { margin: 2px 0 6px 14px; }
+.toc a { display: grid; grid-template-columns: 2.4em 1fr; color: var(--ink); text-decoration: none; padding: 4px 6px; border-radius: 5px; }
+.toc a span { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+.toc a:hover { background: var(--surface-2); }
+.toc ol ol a { color: var(--muted); font-size: 13.5px; }
+
+main { min-width: 0; }
+
+/* header */
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: clamp(36px, 5.4vw, 56px);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  margin: 12px 0 18px;
+  text-wrap: balance;
+}
+.dek { font-size: 20px; line-height: 1.5; max-width: 62ch; margin: 0 0 28px; }
+.assume {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 1040px;
+}
+@media (min-width: 620px) { .assume { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1240px) { .assume { grid-template-columns: repeat(4, 1fr); } }
+.assume div { background: var(--surface); padding: 14px 16px; font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+.assume b { display: block; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+
+/* headings */
+h2 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 80px 0 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  text-wrap: balance;
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+h2 .n, h3 .n { font-family: var(--mono); font-weight: 500; font-size: 0.55em; color: var(--muted); letter-spacing: 0.02em; }
+h3 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 48px 0 10px;
+  text-wrap: balance;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+h4 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 28px 0 6px; }
+main > section > p, .prose p, .prose li, main li { max-width: 70ch; }
+p { margin: 0 0 14px; }
+ul, ol { padding-left: 1.2em; }
+li { margin-bottom: 8px; }
+li::marker { color: var(--muted); }
+
+.lead { font-size: 18.5px; }
+.note { font-family: var(--sans); font-size: 14px; color: var(--muted); max-width: 80ch; }
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 18px 0 10px; }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+table.wide { min-width: 960px; }
+table.mid { min-width: 720px; }
+th {
+  text-align: left;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.k { font-weight: 700; white-space: nowrap; }
+td.pick { font-weight: 600; }
+td code, th code { font-size: 12.5px; }
+.num { font-variant-numeric: tabular-nums; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.chip.stable { color: var(--stable); background: var(--stable-soft); }
+.chip.bake { color: var(--bake); background: var(--bake-soft); }
+.chip.quarter { color: var(--quarter); background: var(--quarter-soft); }
+.key { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--sans); font-size: 13.5px; color: var(--muted); margin: 6px 0 0; }
+.key span.chip { margin-right: 6px; }
+
+/* decision records */
+.adr {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 20px 0 24px;
+  max-width: 980px;
+}
+.adr dt {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 15px 16px 12px;
+  border-top: 1px solid var(--line);
+}
+.adr dd { margin: 0; padding: 12px 20px 14px 0; border-top: 1px solid var(--line); font-size: 16px; line-height: 1.55; }
+.adr dt:first-of-type, .adr dt:first-of-type + dd { border-top: 0; }
+.adr dd.decision { font-family: var(--sans); font-size: 16.5px; font-weight: 600; line-height: 1.45; }
+.adr dd ul { margin: 0; padding-left: 1.1em; }
+.adr dd li { margin-bottom: 6px; max-width: none; }
+@media (max-width: 640px) {
+  .adr { grid-template-columns: 1fr; }
+  .adr dt { padding-bottom: 0; }
+  .adr dd { padding: 6px 16px 14px; border-top: 0; }
+}
+
+/* principles */
+.principles { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 20px 0; max-width: 1040px; }
+@media (min-width: 900px) { .principles { grid-template-columns: repeat(2, 1fr); } }
+.principles article { background: var(--surface); padding: 18px 20px; }
+.principles h4 { margin: 0 0 6px; font-size: 16.5px; }
+.principles p { font-size: 15.5px; line-height: 1.55; margin: 0 0 8px; }
+.principles .ev { font-family: var(--sans); font-size: 13px; color: var(--muted); margin: 0; }
+
+/* figures */
+figure { margin: 30px 0 34px; }
+.fig { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.fig svg { display: block; width: 100%; height: auto; }
+.fig svg.f1 { min-width: 820px; }
+.fig svg.f2, .fig svg.f3 { min-width: 880px; }
+figcaption { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 86ch; margin-top: 12px; }
+figcaption b { color: var(--ink); font-weight: 700; }
+
+/* svg diagram styling via page CSS */
+.dg { color: var(--ink); }
+.dg .bx { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.dg .bx2 { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; }
+.dg .bxd { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 5 4; }
+.dg .bxa { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.3; }
+.dg .lane { fill: var(--surface-2); opacity: 0.6; }
+.dg .sep { stroke: var(--line); stroke-width: 1; }
+.dg .t { fill: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 700; }
+.dg .tl { fill: var(--ink); font-family: var(--sans); font-size: 15px; font-weight: 800; }
+.dg .tm { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.dg .ta { fill: var(--accent); font-family: var(--sans); font-size: 13px; font-weight: 700; }
+.dg .s { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.dg .sm { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+.dg .lay { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em; }
+.dg .l { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.dg .la { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+.dg .e { stroke: var(--ink); stroke-width: 1.2; fill: none; }
+.dg .em { stroke: var(--muted); stroke-width: 1.1; fill: none; }
+.dg .ea { stroke: var(--accent); stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
+.dg .ah { fill: var(--ink); }
+.dg .ahm { fill: var(--muted); }
+.dg .aha { fill: var(--accent); }
+.dg .pill { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+
+pre {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  max-width: 980px;
+  margin: 16px 0 20px;
+}
+pre .c { color: var(--muted); }
+
+.sources h3 { font-size: 16px; margin: 30px 0 8px; }
+.sources ul { font-family: var(--sans); font-size: 14px; line-height: 1.45; padding-left: 1.1em; columns: 1; }
+@media (min-width: 1000px) { .sources ul { columns: 2; column-gap: 40px; } }
+.sources li { break-inside: avoid; max-width: none; margin-bottom: 7px; }
+
+footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 13.5px; color: var(--muted); max-width: 90ch; }
+
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px 16px; }
+  .toc > ol { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); column-gap: 12px; }
+  .toc ol ol { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+</head>
+<body>
+<div class="shell">
+  <nav class="toc" aria-label="Contents">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#summary"><span>1</span>Decision summary</a></li>
+      <li><a href="#questions"><span>2</span>The questions decide it</a></li>
+      <li><a href="#principles"><span>3</span>Principles</a></li>
+      <li><a href="#glance"><span>4</span>System at a glance</a></li>
+      <li><a href="#layers"><span>5</span>Layers</a>
+        <ol>
+          <li><a href="#connect"><span>5.1</span>Connect &amp; sync</a></li>
+          <li><a href="#understand"><span>5.2</span>Understand</a></li>
+          <li><a href="#lake"><span>5.3</span>Context lake</a></li>
+          <li><a href="#projections"><span>5.4</span>Projections</a></li>
+          <li><a href="#serving"><span>5.5</span>Serving</a></li>
+          <li><a href="#interface"><span>5.6</span>Agent interface</a></li>
+        </ol>
+      </li>
+      <li><a href="#crosscut"><span>6</span>Cross-cutting planes</a>
+        <ol>
+          <li><a href="#perm"><span>6.1</span>Permissions</a></li>
+          <li><a href="#security"><span>6.2</span>Security</a></li>
+          <li><a href="#models"><span>6.3</span>Models &amp; gateway</a></li>
+          <li><a href="#eval"><span>6.4</span>Evaluation</a></li>
+        </ol>
+      </li>
+      <li><a href="#sizing"><span>7</span>Sizing math</a></li>
+      <li><a href="#not-chosen"><span>8</span>Deliberately not chosen</a></li>
+      <li><a href="#sequence"><span>9</span>Build sequence</a></li>
+      <li><a href="#buy"><span>10</span>Build vs buy</a></li>
+      <li><a href="#open"><span>11</span>Open questions</a></li>
+      <li><a href="#sources"><span>12</span>Sources</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header>
+      <p class="eyebrow">High-level design · draft for discussion · evidence checked 13 Sep 2026</p>
+      <h1>Hybrid Context Engine</h1>
+      <p class="dek">A platform that turns an organisation’s documents, recordings and databases into permission-aware context that any LLM agent can use over MCP. It is designed around the hardest questions it has to answer: the ones that need a database and a document at the same time.</p>
+      <div class="assume" role="list">
+        <div role="listitem"><b>Scale assumed</b>10⁶–10⁷ documents (≈10⁷–10⁸ pages), tens of databases, one organisation.</div>
+        <div role="listitem"><b>Hosting assumed</b>Your cloud VPC. Frontier LLM APIs are allowed under enterprise terms.</div>
+        <div role="listitem"><b>Still open</b>Whether document content may go to third-party embedding or parsing APIs. Each layer names an API default and a self-hosted equivalent.</div>
+        <div role="listitem"><b>Out of scope</b>Write actions. The engine is read-only by design (§6.2).</div>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="summary">
+      <h2><span class="n">1</span>Decision summary</h2>
+      <p>Every row is argued in §5–6 with its evidence. “Switch when” is the trigger that should reopen the decision, not a list of equally good options.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead>
+            <tr><th>Layer</th><th>Default pick</th><th>Why, in one line</th><th>Switch when</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k">Agent interface</td><td class="pick">MCP server on the 2026-07-28 spec, per-client tool profiles (including the OpenAI <code>search</code>/<code>fetch</code> shape), REST mirror</td><td>Every major agent host speaks MCP; the stateless core runs behind a plain load balancer</td><td>Publish <code>ask</code> over A2A when other agents need to delegate whole tasks</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Ingestion</td><td class="pick">Temporal, one durable workflow per document version; Ray Data for bulk GPU backfills</td><td>Per-document retries, rate-limit windows and heartbeats; Ray streams 10⁷-page jobs</td><td>Dagster if your data team is already asset-centric</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Format conversion</td><td class="pick">Docling (MIT, LF AI &amp; Data) as the hub and intermediate representation</td><td>One document model across PDF, Office, HTML, email, images, audio and video</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Hard pages</td><td class="pick">PaddleOCR-VL-1.6 (Apache-2.0, ~1B) on vLLM, behind a router</td><td>96.3 on OmniDocBench v1.6, permissive licence, ≈1.6 pages/s per A100</td><td>Mistral OCR 4 (API or container) or Reducto for pages that fail validation</td><td><span class="chip quarter">Quarterly</span></td></tr>
+            <tr><td class="k">Audio</td><td class="pick">Batch ASR with word timestamps and diarization. API: AssemblyAI Universal-3.5 Pro. Self-host: Granite Speech 4.1 + pyannote Community-1</td><td>Names, jargon and who-said-what matter more than latency</td><td>Qwen3-ASR (52 languages) or ElevenLabs Scribe v2 for multilingual estates</td><td><span class="chip quarter">Quarterly</span></td></tr>
+            <tr><td class="k">Derived data</td><td class="pick">Context lake: raw objects in S3, everything derived in Iceberg v3 tables</td><td>Re-parse and re-embed without re-crawling; row lineage drives incremental indexing</td><td>Lance format if multimodal ML reuse dominates</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Hybrid index</td><td class="pick">OpenSearch 3.x: BM25 + BBQ-quantised dense vectors + ACL filters + facets</td><td>Mature lexical search, fast term filters for ACLs, aggregations, security in the Apache-2.0 build</td><td>Vespa past ~10⁹ chunks or for in-engine late interaction; turbopuffer if SaaS is acceptable and cost dominates; Postgres-only under ~10⁷ chunks</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Text embeddings</td><td class="pick">Bake-off. Prior: voyage-4-large for documents, voyage-4-lite for queries</td><td>One embedding space across the family: change the query model without re-indexing</td><td>Qwen3-Embedding-8B (Apache-2.0) if content must stay in the VPC; Gemini Embedding 2 on Google Cloud</td><td><span class="chip bake">Bake-off</span></td></tr>
+            <tr><td class="k">Visual channel</td><td class="pick">One vector per page image: Qwen3-VL-Embedding-8B (Apache-2.0)</td><td>Visual retrievers beat text on ViDoRe V3 (59.8 vs 51.0 nDCG@10) at a fraction of multi-vector storage</td><td>Late-interaction models (Vespa, Qdrant) if they win your bake-off by a margin that matters</td><td><span class="chip bake">Bake-off</span></td></tr>
+            <tr><td class="k">Reranker</td><td class="pick">Cohere Rerank 4 Pro or zerank-2, via API</td><td>Top two on Agentset’s Feb 2026 board; +13.2 nDCG@10 on ViDoRe V3’s text pipeline</td><td>Qwen3-Reranker (Apache-2.0) when self-hosting</td><td><span class="chip bake">Bake-off</span></td></tr>
+            <tr><td class="k">Entity layer</td><td class="pick">Postgres entity store, Splink linkage, LLM only for uncertain pairs</td><td>Entities join documents to database rows; full GraphRAG ties plain RAG at equal token budget</td><td>A graph database once multi-hop traversal queries recur</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Metrics &amp; SQL</td><td class="pick">Semantic layer first (Apache Ossie format, MetricFlow); text-to-SQL fallback with schema and value linking; execute at the source as the user</td><td>98–100% vs 84–90% on modelled data (dbt, Apr 2026); fails loudly instead of plausibly</td><td>Snowflake semantic views if Snowflake is the warehouse; Trino only for cross-database joins</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Catalog</td><td class="pick">DataHub: schemas, lineage, query history, MCP tools</td><td>Feeds schema linking, the value index and golden queries</td><td>OpenMetadata for governance-led teams</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Permissions</td><td class="pick">ACL principals on every chunk, a late check on final candidates, a priority revocation lane; SpiceDB when inheritance spans systems</td><td>The engine enforces access; the LLM never decides it</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Evaluation</td><td class="pick">Golden set per question class; OTel GenAI traces into Langfuse; CI gate on every model or parser swap</td><td>Public leaderboards are noisy: annotation errors in 52.8% of BIRD Mini-Dev and 66.1% of audited Spider 2.0-Snow tasks</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="key">
+        <span><span class="chip stable">Stable</span>architecture-level; unlikely to change</span>
+        <span><span class="chip bake">Bake-off</span>default shown; confirm on your golden set first</span>
+        <span><span class="chip quarter">Quarterly</span>state of the art moves every few months; keep it swappable and re-test</span>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="questions">
+      <h2><span class="n">2</span>The questions decide the architecture</h2>
+      <p class="lead">“Answer questions across the corpus” is at least eight different problems. Only the first three are what most teams build when they say RAG. The rest need exact matching, deterministic computation or an explicit plan. An engine that only offers top-k semantic search makes the agent fake those with snippets, and that is where confident wrong answers come from.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead><tr><th>#</th><th>Class</th><th>Example</th><th>What actually answers it</th><th>Tools (§5.6)</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="k">Needle lookup</td><td>“What’s the notice period in the Acme MSA?”</td><td>Hybrid search, rerank, read the section</td><td><code>search</code> <code>fetch</code></td></tr>
+            <tr><td class="num">2</td><td class="k">Exact identifier</td><td>“Everything that mentions PO-2231-A”</td><td>Lexical phrase or regex match. Embeddings blur identifiers.</td><td><code>exact_search</code></td></tr>
+            <tr><td class="num">3</td><td class="k">Multi-hop</td><td>“Who approved the budget for the project behind incident INC-481?”</td><td>Iterative retrieval that hops through entities</td><td><code>search</code> <code>lookup_entity</code> <code>fetch</code></td></tr>
+            <tr><td class="num">4</td><td class="k">Aggregate over documents</td><td>“How many supplier contracts auto-renew in Q4?”</td><td>A table: pre-extracted fields, or a capped map/filter over a filtered set. Never top-k.</td><td><code>browse</code> <code>query_table</code></td></tr>
+            <tr><td class="num">5</td><td class="k">Metrics over databases</td><td>“Q2 net revenue by region”</td><td>Governed metric definitions; text-to-SQL only as a labelled fallback</td><td><code>query_metrics</code> <code>describe_data</code> <code>run_sql</code></td></tr>
+            <tr><td class="num">6</td><td class="k">Hybrid</td><td>“Which top-10 customers by Q2 revenue have contracts auto-renewing before March 2027?”</td><td>A plan that carries typed IDs between SQL and documents and validates the join (Figure 3)</td><td><code>ask</code>, or an agent chaining 5 → 3 → 4</td></tr>
+            <tr><td class="num">7</td><td class="k">Sense-making</td><td>“What themes dominate complaints this quarter?”</td><td>Map-reduce over a filtered, sampled set, with the sample disclosed</td><td><code>ask</code></td></tr>
+            <tr><td class="num">8</td><td class="k">Point-in-time</td><td>“What did the travel policy say in March 2025?”</td><td>Versioned documents with validity windows</td><td><code>search</code> with <code>as_of</code></td></tr>
+            <tr><td class="num">—</td><td class="k">Not there / not permitted</td><td>Any of the above</td><td>A sufficiency check; say what is missing without revealing restricted documents</td><td>all</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The evidence for splitting classes 4–6 out of “RAG”:</p>
+      <ul>
+        <li><a href="https://arxiv.org/html/2603.07316">FinSheet-Bench</a>: frontier models score 89% on simple spreadsheet lookups but 19.6% on percentile-style operations. The authors conclude that reliable systems must “separate document understanding from deterministic computation.”</li>
+        <li><a href="https://huggingface.co/papers/2603.20576">Data Agent Benchmark</a> (54 enterprise queries across four DBMSs): the best model reached 38% pass@1. 85% of failures were wrong implementation or planning, not wrong tables, and every agent used regex for text extraction.</li>
+        <li><a href="https://www.snowflake.com/en/blog/engineering/hybrid-deep-research-benchmark/">HybridDeepResearch</a> (Snowflake, June 2026) names the hybrid failure modes. In the <em>salience trap</em>, agents drop the database anchor when a high-ranked text result looks relevant. In <em>anchor dropout</em>, text findings never become SQL predicates. The third is a skipped final intersection.</li>
+      </ul>
+    </section>
+
+    <!-- 3 -->
+    <section id="principles">
+      <h2><span class="n">3</span>Principles</h2>
+      <p>These eight rules generate most of the component choices below. Each is tied to evidence rather than taste.</p>
+      <div class="principles">
+        <article>
+          <h4>Many interfaces, not one retriever</h4>
+          <p>Agents do better when they can search by meaning, match exactly, filter and count, read with navigation and run SQL. A single top-k endpoint pushes every question through the one channel it fits least.</p>
+          <p class="ev">Evidence: <a href="https://arxiv.org/abs/2605.05242">direct corpus interaction</a> (grep-style access beat sparse, dense and reranked retrieval on BRIGHT and BrowseComp-Plus); <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a> (text and visual channels are complementary).</p>
+        </article>
+        <article>
+          <h4>Compute, don’t generate</h4>
+          <p>Counting, summing, ranking and joining happen in SQL or DuckDB. The model plans, reads and explains.</p>
+          <p class="ev">Evidence: <a href="https://arxiv.org/html/2603.07316">FinSheet-Bench</a>; <a href="https://huggingface.co/papers/2603.20576">DAB</a> (pushing aggregation into SQL beat post-processing in Python).</p>
+        </article>
+        <article>
+          <h4>Databases stay where they are</h4>
+          <p>Index their metadata, semantics, values and query history. Query the rows live, as the user. Freshness is free, regulated rows get no second copy, and native row-level security keeps working.</p>
+          <p class="ev">Reasoning; see §5.5 for the execution path.</p>
+        </article>
+        <article>
+          <h4>Indexes are disposable; the lake is not</h4>
+          <p>Keep parse output, chunks and embeddings in a versioned lake so any index can be rebuilt without touching the sources. Re-crawling is the slowest, most rate-limited step, and some sources forbid it.</p>
+          <p class="ev">Evidence: Mistral shipped <a href="https://docs.mistral.ai/resources/changelogs">four OCR generations</a> in 15 months; the <a href="https://github.com/opendatalab/OmniDocBench">OmniDocBench</a> leader changed again on 11 Sep 2026.</p>
+        </article>
+        <article>
+          <h4>Permissions are enforced twice, by the engine</h4>
+          <p>Filter inside every index channel, then re-check the final candidates against the source of truth. The model never sees content the user can’t open, so no prompt can talk it into leaking.</p>
+          <p class="ev">Pattern: <a href="https://authzed.com/docs/spicedb/ops/secure-rag-pipelines">SpiceDB pre- and post-filtering</a>; see Figure 2.</p>
+        </article>
+        <article>
+          <h4>Pre-index by default, federate by exception</h4>
+          <p>An index gives consistent ranking and speed. Federation is for sources whose terms, privacy or volatility demand it.</p>
+          <p class="ev">Evidence: <a href="https://www.computerworld.com/article/4005509/salesforce-changes-slack-api-terms-to-block-bulk-data-access-for-llms.html">Slack’s 2025 API terms</a> forbid third-party persistent indexes; <a href="https://www.llamaindex.ai/blog/does-mcp-kill-vector-search">MCP-only federation</a> is slower and less relevant.</p>
+        </article>
+        <article>
+          <h4>Measure on your data before choosing</h4>
+          <p>Build the golden set before the features. Leaderboards are a prior, not a verdict.</p>
+          <p class="ev">Evidence: MTEB’s top three placed 5th, 7th and 2nd on one <a href="https://www.premai.io/blog/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting/">legal in-domain set</a>; <a href="https://www.vldb.org/cidrdb/papers/2026/p5-jin.pdf">CIDR 2026</a> text-to-SQL annotation audit.</p>
+        </article>
+        <article>
+          <h4>Treat retrieved content as hostile</h4>
+          <p>Any document can carry a prompt injection. Keep the engine read-only with no egress, label provenance, and never let retrieved text change a plan.</p>
+          <p class="ev">Evidence: <a href="https://arxiv.org/pdf/2503.18813">CaMeL</a> (separating control flow from data flow); <a href="https://developer.microsoft.com/blog/protecting-against-indirect-injection-attacks-mcp">indirect injection via MCP</a>.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="glance">
+      <h2><span class="n">4</span>System at a glance</h2>
+      <p>Read it bottom-up for the write path and top-down for the read path. Documents are copied, parsed and stored once in the lake, and every index above the lake is a projection that can be rebuilt. Databases never enter the lake: only their metadata reaches the catalog, and their rows are queried live.</p>
+
+      <figure>
+        <div class="fig">
+          <svg class="dg f1" viewBox="0 0 1000 816" role="img" aria-label="Architecture overview. Agents call an MCP gateway and the context API, which reads five projections. Documents flow up from sources through connectors, understanding and the context lake into the projections. Databases send only metadata to the catalog and are queried live at the source. Live-only SaaS is searched at query time.">
+            <defs>
+              <marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah" fill="currentColor"/></marker>
+              <marker id="f1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="aha"/></marker>
+            </defs>
+
+            <!-- layer labels -->
+            <text class="lay" x="16" y="36">AGENTS</text>
+            <text class="lay" x="16" y="106">5.6 INTERFACE</text>
+            <text class="lay" x="16" y="181">5.5 SERVE</text>
+            <text class="lay" x="16" y="283">5.4 PROJECT</text>
+            <text class="lay" x="16" y="379">5.3 LAKE</text>
+            <text class="lay" x="16" y="475">5.2 UNDERSTAND</text>
+            <text class="lay" x="16" y="571">5.1 CONNECT</text>
+
+            <!-- R1 agents -->
+            <rect class="bx2" x="160" y="12" width="800" height="40" rx="6"/>
+            <text class="t" x="560" y="37" text-anchor="middle">Any agent: Claude · ChatGPT · Gemini · IDE agents · in-house agents · REST clients</text>
+            <path class="e" d="M560,52 V82" marker-end="url(#f1a)"/>
+            <text class="l" x="572" y="72">MCP 2026-07-28 · OAuth 2.1</text>
+
+            <!-- R2 gateway -->
+            <rect class="bx" x="160" y="84" width="800" height="36" rx="6"/>
+            <text class="t" x="560" y="107" text-anchor="middle">MCP gateway: tool profile per client · per-tool policy and rate limits · audit (human + agent)</text>
+            <path class="e" d="M560,120 V144" marker-end="url(#f1a)"/>
+
+            <!-- R3 context api -->
+            <rect class="bx" x="160" y="146" width="800" height="62" rx="6"/>
+            <text class="tl" x="180" y="182">Context API</text>
+            <text class="sm" x="330" y="172">search · fetch · exact_search · browse · lookup_entity</text>
+            <text class="sm" x="330" y="194">describe_data · query_metrics · run_sql · query_table · ask</text>
+
+            <!-- reads -->
+            <path class="e" d="M215,208 V248" marker-end="url(#f1a)"/>
+            <path class="e" d="M338,208 V248" marker-end="url(#f1a)"/>
+            <path class="e" d="M461,208 V248" marker-end="url(#f1a)"/>
+            <path class="e" d="M584,208 V248" marker-end="url(#f1a)"/>
+            <path class="e" d="M820,208 V248" marker-end="url(#f1a)"/>
+            <text class="l" x="276" y="233" text-anchor="middle">reads</text>
+
+            <!-- R4 projections -->
+            <rect class="bx" x="160" y="250" width="111" height="58" rx="6"/>
+            <text class="t" x="215.5" y="274" text-anchor="middle">Hybrid index</text>
+            <text class="s" x="215.5" y="292" text-anchor="middle">OpenSearch</text>
+            <rect class="bx" x="283" y="250" width="111" height="58" rx="6"/>
+            <text class="t" x="338.5" y="274" text-anchor="middle">Visual pages</text>
+            <text class="s" x="338.5" y="292" text-anchor="middle">page vectors</text>
+            <rect class="bx" x="406" y="250" width="111" height="58" rx="6"/>
+            <text class="t" x="461.5" y="274" text-anchor="middle">Entity store</text>
+            <text class="s" x="461.5" y="292" text-anchor="middle">Postgres</text>
+            <rect class="bx" x="529" y="250" width="111" height="58" rx="6"/>
+            <text class="t" x="584.5" y="274" text-anchor="middle">Doc tables</text>
+            <text class="s" x="584.5" y="292" text-anchor="middle">DuckDB · lake</text>
+            <rect class="bx" x="680" y="250" width="280" height="58" rx="6"/>
+            <text class="t" x="820" y="274" text-anchor="middle">Catalog + semantic layer</text>
+            <text class="s" x="820" y="292" text-anchor="middle">DataHub · Ossie / MetricFlow</text>
+
+            <!-- projections from lake -->
+            <path class="e" d="M215,346 V310" marker-end="url(#f1a)"/>
+            <path class="e" d="M338,346 V310" marker-end="url(#f1a)"/>
+            <path class="e" d="M461,346 V310" marker-end="url(#f1a)"/>
+            <path class="e" d="M584,346 V310" marker-end="url(#f1a)"/>
+            <text class="l" x="276" y="331" text-anchor="middle">project</text>
+
+            <!-- R5 lake -->
+            <rect class="bx" x="160" y="346" width="480" height="58" rx="6"/>
+            <text class="t" x="176" y="368">Context lake</text>
+            <text class="s" x="176" y="384">raw objects (S3) · IR · chunks · embeddings · page images</text>
+            <text class="s" x="176" y="398">extraction tables · entities · pipeline versions · Iceberg v3</text>
+            <path class="e" d="M400,442 V406" marker-end="url(#f1a)"/>
+            <text class="l" x="412" y="428">IR + provenance</text>
+
+            <!-- R6 understand -->
+            <rect class="bx" x="160" y="442" width="480" height="58" rx="6"/>
+            <text class="t" x="176" y="464">Understand</text>
+            <text class="s" x="176" y="480">Docling (Office, HTML, email) · PaddleOCR-VL (scans)</text>
+            <text class="s" x="176" y="494">ASR + diarization · enrich · chunk · embed</text>
+            <path class="e" d="M400,538 V502" marker-end="url(#f1a)"/>
+            <text class="l" x="412" y="524">documents</text>
+
+            <!-- R7 connect -->
+            <rect class="bx" x="160" y="538" width="480" height="58" rx="6"/>
+            <text class="t" x="176" y="560">Connector SDK on Temporal</text>
+            <text class="s" x="176" y="578">changes(cursor) · fetch · acl · principals · identity map</text>
+            <rect class="bx" x="680" y="538" width="280" height="58" rx="6"/>
+            <text class="t" x="820" y="560" text-anchor="middle">Metadata sync</text>
+            <text class="s" x="820" y="578" text-anchor="middle">schemas · stats · values · query logs</text>
+            <path class="e" d="M820,538 V310" marker-end="url(#f1a)"/>
+            <text class="l" x="832" y="372">metadata only</text>
+            <text class="l" x="832" y="387">no rows copied</text>
+
+            <!-- R8 sources -->
+            <path class="e" d="M235,634 V598" marker-end="url(#f1a)"/>
+            <path class="e" d="M400,634 V598" marker-end="url(#f1a)"/>
+            <path class="e" d="M565,634 V598" marker-end="url(#f1a)"/>
+            <text class="l" x="317.5" y="620" text-anchor="middle">content + ACL deltas</text>
+            <path class="e" d="M820,634 V598" marker-end="url(#f1a)"/>
+
+            <rect class="bxd" x="16" y="634" width="120" height="58" rx="6"/>
+            <text class="t" x="76" y="655" text-anchor="middle">Live-only SaaS</text>
+            <text class="s" x="76" y="671" text-anchor="middle">e.g. Slack</text>
+            <text class="s" x="76" y="685" text-anchor="middle">not indexed</text>
+            <rect class="bx2" x="160" y="634" width="150" height="58" rx="6"/>
+            <text class="t" x="235" y="656" text-anchor="middle">Doc stores</text>
+            <text class="s" x="235" y="674" text-anchor="middle">SharePoint · Drive</text>
+            <rect class="bx2" x="325" y="634" width="150" height="58" rx="6"/>
+            <text class="t" x="400" y="656" text-anchor="middle">Files &amp; objects</text>
+            <text class="s" x="400" y="674" text-anchor="middle">S3 · shares · email</text>
+            <rect class="bx2" x="490" y="634" width="150" height="58" rx="6"/>
+            <text class="t" x="565" y="656" text-anchor="middle">Recordings</text>
+            <text class="s" x="565" y="674" text-anchor="middle">meetings · calls</text>
+            <rect class="bx2" x="680" y="634" width="280" height="58" rx="6"/>
+            <text class="t" x="820" y="656" text-anchor="middle">Databases</text>
+            <text class="s" x="820" y="674" text-anchor="middle">Postgres · MySQL · Snowflake · …</text>
+
+            <!-- live paths -->
+            <path class="ea" d="M160,190 H144 V663 H139" marker-end="url(#f1b)"/>
+            <text class="la" x="76" y="606" text-anchor="middle">federated at</text>
+            <text class="la" x="76" y="620" text-anchor="middle">query time</text>
+            <path class="ea" d="M960,190 H980 V663 H963" marker-end="url(#f1b)"/>
+            <text class="la" x="972" y="462" text-anchor="end">live SQL</text>
+            <text class="la" x="972" y="476" text-anchor="end">user identity</text>
+            <text class="la" x="972" y="490" text-anchor="end">read-only</text>
+
+            <!-- planes -->
+            <rect class="bx2" x="16" y="712" width="944" height="44" rx="6"/>
+            <text class="t" x="32" y="731">Identity &amp; permissions</text>
+            <text class="s" x="32" y="748">IdP → identity map → principal graph · captured at connect · stored on every chunk · re-checked at query · passed through to SQL</text>
+            <rect class="bx2" x="16" y="764" width="466" height="44" rx="6"/>
+            <text class="t" x="32" y="783">Evaluation &amp; tracing</text>
+            <text class="s" x="32" y="800">golden sets · OTel GenAI → Langfuse · CI gates</text>
+            <rect class="bx2" x="494" y="764" width="466" height="44" rx="6"/>
+            <text class="t" x="510" y="783">Model gateway</text>
+            <text class="s" x="510" y="800">LLMs · embedders · rerankers, all versioned</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 1.</b> Two paths, one lake. Solid arrows are the write path (up) and the read path (down). The two dashed paths are the exceptions that keep data where it lives. Rows are queried live in the database with the user’s identity. Sources that can’t be indexed are searched at query time and merged after reranking.</figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section id="layers">
+      <h2><span class="n">5</span>Layers</h2>
+      <p>Each layer ends in a decision record with four parts: what we pick, why, what we rejected, and the trigger to revisit.</p>
+
+      <!-- 5.1 -->
+      <h3 id="connect"><span class="n">5.1</span>Connect &amp; sync</h3>
+      <dl class="adr">
+        <dt>Decision</dt>
+        <dd class="decision">A connector SDK with one contract for every source, running as Temporal workflows (one per document version), with Ray Data for bulk backfills. Databases get metadata connectors, not row copies. Sources whose terms forbid indexing are federated at query time.</dd>
+        <dt>Why</dt>
+        <dd>Durable per-document workflows give you retries, rate-limit-aware windows and heartbeats for long crawls, and trace every failure back to one document. Rapidflare <a href="https://temporal.io/blog/how-rapidflare-built-a-million-document-ingestion-pipeline-for-agents-on-temporal">ran a million-document agent ingestion</a> this way. Ray Data streams GPU-heavy parse and embed work for 10⁷-page backfills. One contract means ACLs travel through the same code path as content, so the two can’t drift apart.</dd>
+        <dt>Rejected</dt>
+        <dd><ul>
+          <li>Federating everything over MCP. It is slower, ranking can’t be fused across heterogeneous APIs, and quality depends on which system happens to hold the answer (<a href="https://www.llamaindex.ai/blog/does-mcp-kill-vector-search">LlamaIndex</a>).</li>
+          <li>Nightly full crawls. They make the ACL drift window a full day.</li>
+        </ul></dd>
+        <dt>Revisit when</dt>
+        <dd>A source offers only live search (federate it), or event volume outgrows per-document workflows (move that source to a Ray-only batch lane).</dd>
+      </dl>
+      <h4>The contract</h4>
+<pre><span class="c">// every connector implements the same five calls</span>
+changes(cursor)   → [{ id, version, op: upsert|delete|acl }], next_cursor
+fetch(id)         → bytes + source metadata + deep link
+acl(id)           → { principals: [user:, group:, domain:], link_sharing }
+principals()      → users, groups, memberships        <span class="c">// for the principal graph</span>
+identity_map()    → source user id ↔ IdP identity</pre>
+      <ul>
+        <li><strong>Three connector kinds.</strong> <em>Indexed content</em> covers SharePoint and OneDrive through Graph delta queries, Google Drive through its changes feed, Box, Confluence, object stores, file shares and email. <em>Structured metadata</em> covers Postgres, MySQL, Snowflake and the rest: schemas, comments, statistics, distinct values of low-cardinality columns, query history and row-access policies. <em>Federated</em> covers sources searched live, such as Slack through its Real-time Search API.</li>
+        <li><strong>Freshness.</strong> Change feeds and object events give minutes-level freshness. A weekly reconciliation crawl catches missed events and ACL drift. Deletions and ACL changes skip the queue on a priority lane with its own SLO (proposed: p99 under 5 minutes).</li>
+        <li><strong>“New kinds of databases keep appearing.”</strong> Supporting one means writing two adapters: a metadata extractor, and a read-only executor over ADBC, Arrow Flight SQL, JDBC or an existing Trino connector. The catalog, semantic layer and tools don’t change.</li>
+        <li><strong>Reuse before writing.</strong> Enumeration and fetch code exists in <a href="https://airbyte.com/agentic-data/pre-built-connectors-for-ai-agents">Airbyte</a> (600+ connectors), <a href="https://onyx.app/connectors">Onyx</a> (50+ with permission sync) and <a href="https://github.com/airweave-ai/airweave">Airweave</a> (50+ integrations). Own and test ACL extraction for your top sources; that is where connectors quietly go wrong.</li>
+      </ul>
+
+      <!-- 5.2 -->
+      <h3 id="understand"><span class="n">5.2</span>Understand: parsing, audio, spreadsheets, chunks</h3>
+      <dl class="adr">
+        <dt>Decision</dt>
+        <dd class="decision">Docling is the conversion hub and intermediate representation (IR) for every format. A router sends only scanned or layout-hard pages to PaddleOCR-VL-1.6 on vLLM. Mistral OCR 4 is the fallback for pages that fail validation. Audio goes through ASR with word timestamps and speaker diarization.</dd>
+        <dt>Why</dt>
+        <dd><a href="https://docling-project.github.io/docling/">Docling</a> (MIT, under LF AI &amp; Data) reads PDF, DOCX, PPTX, XLSX, HTML, EPUB, EML/MSG, images, WAV/MP3, WebVTT and video into one document model. It also ships an MCP server and a service mode. <a href="https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6">PaddleOCR-VL-1.6</a> (Apache-2.0, released 28 May 2026) scores 96.3 on <a href="https://github.com/opendatalab/OmniDocBench">OmniDocBench v1.6</a>. On the same board Gemini 3 Pro scores 92.9 and GPT-5.2 scores 86.6. Its predecessor measured <a href="https://arxiv.org/html/2510.14528v2">1.62 pages/s on one A100</a> with vLLM. Born-digital Office files need no OCR at all, so the router saves more money than any model choice.</dd>
+        <dt>Rejected</dt>
+        <dd><ul>
+          <li>MinerU2.5-Pro as the default. It is strong (95.75), but its <a href="https://github.com/opendatalab/MinerU/blob/master/LICENSE.md">licence</a> requires a commercial agreement above US$20M monthly revenue.</li>
+          <li>One VLM for every page. That spends GPU time on files that already have perfect text.</li>
+          <li>Letting OmniDocBench decide. It is 1,651 pages weighted toward academic, Chinese and English layouts, and olmOCR-bench is <a href="https://www.llamaindex.ai/blog/olmocr-bench-review-insights-and-pitfalls-on-an-ocr-benchmark">~56% academic papers</a>. Neither looks like your invoices.</li>
+        </ul></dd>
+        <dt>Revisit when</dt>
+        <dd>Every quarter. TeleOCR (96.91) and OvisOCR2 (96.47) topped the board on 11 Sep 2026. <a href="https://mistral.ai/news/ocr-4/">Mistral OCR 4</a> (23 Jun 2026; $2 per 1,000 pages in batch; single-container self-host) and Cohere Parse 5 (27 Aug 2026) are recent entrants. Re-run your own page set.</dd>
+      </dl>
+      <ul>
+        <li><strong>Router.</strong> Route by MIME type plus a probe. For PDFs, check text-layer quality (coverage, garbage ratio) and layout signals (tables, multi-column, forms). Good text with a simple layout takes the fast path; everything else goes to the VLM. Images get a VLM parse and a caption.</li>
+        <li><strong>IR.</strong> Sections contain blocks (paragraph, table, figure, list, formula, code). Each block carries provenance: page, bounding box and character offsets, or a time range for media. Page images are rendered and kept, both for the visual channel and for answering with the page itself. On <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a>, page-image context beat text context 64.7% to 62.3% when the right pages were given.</li>
+        <li><strong>Spreadsheets.</strong> Detect the table regions on each sheet (a sheet often holds several). Each table becomes a Parquet/Iceberg “document table” queryable by DuckDB. A text card (sheet name, headers, units, sample rows, statistics) makes it findable. Formulas are kept as metadata. The model finds the table; SQL does the arithmetic.</li>
+        <li><strong>Chunking.</strong> Chunk by structure: paragraph groups of about 300–800 tokens, never crossing a section boundary, with each table as its own chunk and its header row repeated. Prefix every chunk with a context header: <code>title › section path › caption · date · source</code>. That “enriched title” variant is the cheap win in an <a href="https://arxiv.org/html/2608.16586v1">Aug 2026 study</a> covering 10K–10M documents. The same study found LLM-contextualised and semantic chunking rarely gave consistent gains, for 5–50× the processing time. Anthropic’s <a href="https://www.anthropic.com/engineering/contextual-retrieval">contextual retrieval</a> (−49% failed retrievals, −67% with reranking) is still worth a bake-off on low-context fragments such as slides, spreadsheet cards and email replies, but not as a default.</li>
+        <li><strong>Enrichment.</strong> Tag document type, language, effective and expiry dates, and entity mentions (people, organisations, products, identifiers). A small model writes a short document card.</li>
+        <li><strong>Extraction tables.</strong> For high-volume document types (contracts, invoices, purchase orders), define one schema per type. An LLM fills it with a citation (page and box) and a confidence for each field. Low-confidence fields go to a review queue. These tables are what make class-4 and class-6 questions exact.</li>
+        <li><strong>Audio.</strong> Choose by accuracy on your own recordings; names and jargon dominate business audio. The API default is AssemblyAI Universal-3.5 Pro, which reports lower entity error and cpWER than ElevenLabs Scribe v2 (<a href="https://www.assemblyai.com/blog/assemblyai-universal-3-pro-vs-elevenlabs-scribe-v2-compared">vendor-reported</a>). To self-host, use <a href="https://www.marktechpost.com/2026/07/23/best-open-speech-recognition-asr-models-in-2026-wer-languages-latency-and-license-compared/">Granite Speech 4.1 2B</a> (Apache-2.0, 5.33% mean WER, keyword-list biasing) or Qwen3-ASR-1.7B (52 languages), with <a href="https://www.pyannote.ai/blog/community-1">pyannote Community-1</a> for diarization. Feed the entity store’s names into keyword biasing, and map diarised speakers to people from calendar metadata where available.</li>
+        <li><strong>Parser evaluation.</strong> Take 50–200 of your own pages per document family, with gold markdown and tables, and score each element type: text, table structure and reading order.</li>
+      </ul>
+
+      <!-- 5.3 -->
+      <h3 id="lake"><span class="n">5.3</span>Context lake</h3>
+      <dl class="adr">
+        <dt>Decision</dt>
+        <dd class="decision">Raw objects live in versioned S3. Everything derived lives in Apache Iceberg v3 tables: IR, chunks, embeddings, page-image references, extraction tables, entities and pipeline versions. Every index is a rebuildable projection keyed by <code>(doc_id, doc_version, pipeline_version)</code>.</dd>
+        <dt>Why</dt>
+        <dd>Parsers, embedders and rerankers will each be replaced several times over this platform’s life. Iceberg v3 became production-ready with Iceberg 1.11.0 (19 May 2026) and is <a href="https://atlan.com/know/snowflake/apache-iceberg-v3/">GA on Snowflake</a> since 7 May 2026. It adds deletion vectors for fast deletes and row lineage for native change feeds, which the projection jobs consume to update indexes incrementally. The same tables are readable from Snowflake, Databricks, Trino and DuckDB, so extraction tables join directly with warehouse data.</dd>
+        <dt>Rejected</dt>
+        <dd>The index as the system of record, which makes every model upgrade a re-crawl. A vector database as the lake, which can’t serve SQL joins.</dd>
+        <dt>Revisit when</dt>
+        <dd>Multimodal ML (fine-tuning on page images, dataset curation) becomes a main workload. Lance format has better random access for that, and <a href="https://milvus.io/blog/announcing-milvus-3-lake-native-vector-search-and-a-more-powerful-retrieval-engine.md">Milvus 3.0</a> (Jul 2026) already searches Lance, Iceberg and Parquet in place.</dd>
+      </dl>
+      <ul>
+        <li><strong>Model upgrades.</strong> Build the new projection behind a blue/green index alias, shadow-evaluate it on the golden set, then flip. <a href="https://blog.voyageai.com/2026/01/15/voyage-4/">Voyage 4</a>’s shared embedding space lets you change the query-side model without re-embedding documents.</li>
+        <li><strong>Deletion.</strong> A tombstone propagates to every projection and cache. The lake keeps an audit record, not the content. Legal hold uses S3 Object Lock.</li>
+      </ul>
+
+      <!-- 5.4 -->
+      <h3 id="projections"><span class="n">5.4</span>Projections: index, pages, entities, catalog</h3>
+      <dl class="adr">
+        <dt>Decision</dt>
+        <dd class="decision">OpenSearch 3.x holds three indexes. The chunk index has BM25 with language analyzers, dense vectors with 1-bit BBQ quantisation and rescoring, ACL principal lists, metadata and facets. The other two are the visual page index and the document-card index.</dd>
+        <dt>Why</dt>
+        <dd>Enterprise questions depend on exact tokens: part numbers, clause names, acronyms, people. That makes lexical search a primary channel, not a fallback, and Lucene’s analyzers, phrase and regex queries are the most mature available. ACL filtering is a terms filter over principal IDs, which Lucene engines have run at scale for over a decade. <code>browse</code> needs aggregations. <a href="https://www.instaclustr.com/blog/opensearch-version-3-6-release-smart-agents-and-fast-search/">OpenSearch 3.6</a> (10 Apr 2026) added Lucene BBQ at 32× compression (recall above 0.95 with oversampling on Cohere-10M). Document- and field-level security ship in the Apache-2.0 build, and managed offerings exist. Onyx, an open-source enterprise search product with the same connector-and-permissions problem, <a href="https://docs.onyx.app/changelog">moved its whole index from Vespa to OpenSearch</a> in v3–v4 (Mar–Apr 2026). It hasn’t said why, so treat that as a signal, not proof.</dd>
+        <dt>Rejected</dt>
+        <dd><ul>
+          <li><strong>Elasticsearch 9.x.</strong> Its hybrid tooling is as good or better (retrievers, <code>semantic_text</code>, and Jina models since Elastic <a href="https://finance.yahoo.com/news/elastic-completes-acquisition-jina-ai-130200685.html">acquired Jina AI</a> in Oct 2025), but document-level security sits in paid tiers. Pick it if you already license Elastic.</li>
+          <li><strong>Vespa.</strong> The most capable ranking engine, with multi-phase tensor ranking and in-engine <a href="https://blog.vespa.ai/scaling-colpali-to-billions/">ColPali at billions of pages</a>. The capabilities where it leads are the ones this design puts elsewhere: final ranking goes to a cross-encoder, and visual retrieval uses single vectors.</li>
+          <li><strong>turbopuffer.</strong> Built on object storage, cheap at scale, with BM25, vectors and filters; Cursor, Notion and Anthropic run on it. It has <a href="https://turbopuffer.com/docs/tradeoffs">no aggregations or multi-vector</a>, you build second-stage ranking yourself, and a SaaS vendor becomes a processor of the whole corpus.</li>
+          <li><strong>Qdrant, Milvus.</strong> Strong vector engines, but their lexical analysis and facets are less mature than Lucene’s, and lexical is a primary channel here.</li>
+          <li><strong>Postgres only</strong> (pgvector or VectorChord, plus <a href="https://www.tigerdata.com/blog/pg-textsearch-bm25-full-text-search-postgres">pg_textsearch</a> or ParadeDB). The simplest stack under ~10⁷ chunks. But its BM25 extensions are one to two years old, and this platform needs BM25, quantised ANN, large ACL filters and facets together at 10⁸ rows. That combination is where Lucene engines have the longest production record.</li>
+        </ul></dd>
+        <dt>Revisit when</dt>
+        <dd>You pass ~10⁹ chunks or need learned ranking over many features: go to Vespa (now with a <a href="https://blog.vespa.ai/vespa-newsletter-february-2026/">Kubernetes operator</a>). A late-interaction visual model beats single vectors by a margin you care about: go to Vespa or Qdrant multivector. The corpus turns out to be under ~10⁷ chunks: go Postgres-only. SaaS is acceptable and cost dominates: go to turbopuffer.</dd>
+      </dl>
+      <h4>Chunk record</h4>
+<pre>chunk {
+  id, doc_id, doc_version, source, url,
+  context_header, text,                 <span class="c">// BM25 over both</span>
+  vec_text: bbq_1bit(1024),             <span class="c">// dense channel, rescored from disk</span>
+  acl_principals: [keyword],            <span class="c">// user:…, group:…, domain:…</span>
+  acl_version, sensitivity_label,
+  doc_type, lang, entity_ids: [keyword],
+  valid_from, valid_to, updated_at,     <span class="c">// class-8 questions</span>
+  provenance: { page, bbox } | { t_start, t_end }
+}</pre>
+      <ul>
+        <li><strong>Visual page index.</strong> One vector per rendered page, covering slides, charts, scans and diagrams. On <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a> (≈26,000 enterprise page images, 10 domains), the best visual retriever scored 59.8 nDCG@10 against 51.0 for the best text retriever. Giving the generator the top five from each answered 54.7% of hard queries, more than either channel alone. The default model is <a href="https://arxiv.org/pdf/2601.04720">Qwen3-VL-Embedding-8B</a> (Apache-2.0), which its authors report as comparable to ColPali-style multi-vector models at far lower cost. Those models store about a thousand 128-dim vectors per page. On Google Cloud, <a href="https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-embedding-2-generally-available/">Gemini Embedding 2</a> (GA 22 Apr 2026) is the alternative; it puts text, image, audio, video and PDF in one space.</li>
+        <li><strong>Document cards.</strong> One record per document (title, summary, owner, dates, type, entities). This is what <code>browse</code> returns, and a coarse first stage for long documents.</li>
+        <li><strong>Entity store (Postgres).</strong> Tables for entities (canonical ID, type, names, aliases), mentions (chunk, span), links to structured keys such as <code>snowflake:crm.customers.id=4812</code>, and typed relations where extracted. Linkage uses <a href="https://moj-analytical-services.github.io/splink/index.html">Splink</a> (probabilistic record linkage on DuckDB or Spark, 100M+ records), with an LLM deciding only the uncertain pairs. LLM-only matching costs <a href="https://tilores.io/content/can-llms-be-used-for-entity-resolution/">100–1,000× more</a> at production volume (vendor analysis). This is the bridge that makes class-6 questions joinable.</li>
+        <li><strong>Why not GraphRAG now.</strong> In a <a href="https://arxiv.org/html/2502.11371v3">systematic comparison</a>, plain RAG beat Microsoft’s community GraphRAG on single-hop questions (64.78 vs 63.01 F1). On MultiHop-RAG the two tied once RAG got the same token budget (69.33 vs 69.01); GraphRAG had been using 9,770 tokens per query against 3,631. Graphs earn their cost on relationship-heavy and global questions. So build the entity layer now, which is cheap and needed for hybrid anyway. Use query-time community summarisation (LazyGraphRAG-style, about 0.1% of GraphRAG’s indexing cost) for class-7 questions. Add a graph database only when traversal queries recur. Note that Kùzu was <a href="https://thedataquarry.com/blog/from-kuzu-to-ladybug/">archived in Oct 2025</a> and continues as the LadybugDB fork.</li>
+        <li><strong>Catalog and semantic layer.</strong> <a href="https://docs.datahub.com/docs/features/feature-guides/mcp">DataHub</a> ingests schemas, descriptions, lineage and query history, and already exposes search, lineage and schema tools over MCP. Three things go on top:
+          <ul>
+            <li>embeddings over tables, columns and metrics for schema linking;</li>
+            <li>a value index of distinct values in categorical columns, so “Acme” resolves to <code>'ACME Corp Inc.'</code>;</li>
+            <li>golden queries: verified SQL for recurring questions, mined from query logs and reviewed.</li>
+          </ul>
+          Metrics are defined once in <a href="https://ossie.apache.org/updates/ossie-enters-apache-incubator/">Apache Ossie</a> format, with MetricFlow (Apache-2.0) as the reference implementation. Ossie was formerly OSI: v1 shipped in Jan 2026 and it entered the Apache Incubator in Jul 2026. Where Snowflake is the warehouse, Snowflake semantic views are the alternative.</li>
+      </ul>
+
+      <!-- 5.5 -->
+      <h3 id="serving"><span class="n">5.5</span>Serving: retrieval, SQL and the planner</h3>
+      <p>One API sits in front of three execution paths. Figure 2 is the inside of <code>search</code>, the call every agent makes most.</p>
+
+      <figure>
+        <div class="fig">
+          <svg class="dg f2" viewBox="0 0 1080 316" role="img" aria-label="Inside search: analyse the query, expand the user into principals, retrieve from three ACL-filtered index channels plus federated sources, fuse with RRF, rerank, late-check permissions against the source, then pack results. ACL and delete events update the index on a priority lane.">
+            <defs>
+              <marker id="f2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah" fill="currentColor"/></marker>
+              <marker id="f2b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="aha"/></marker>
+            </defs>
+
+            <rect class="bx2" x="2" y="118" width="78" height="34" rx="17"/>
+            <text class="t" x="41" y="139" text-anchor="middle">query</text>
+            <path class="e" d="M80,135 H102" marker-end="url(#f2a)"/>
+
+            <rect class="bx" x="104" y="110" width="110" height="50" rx="6"/>
+            <text class="t" x="159" y="131" text-anchor="middle">1 analyse</text>
+            <text class="s" x="159" y="148" text-anchor="middle">rewrite · filters</text>
+            <path class="e" d="M214,135 H236" marker-end="url(#f2a)"/>
+
+            <rect class="bx" x="238" y="110" width="110" height="50" rx="6"/>
+            <text class="t" x="293" y="131" text-anchor="middle">2 principals</text>
+            <text class="s" x="293" y="148" text-anchor="middle">user → groups</text>
+
+            <text class="l" x="469" y="28" text-anchor="middle">3 retrieve in parallel</text>
+            <path class="e" d="M348,135 H366 V59 H382" marker-end="url(#f2a)"/>
+            <path class="e" d="M366,135 V111 H382" marker-end="url(#f2a)"/>
+            <path class="e" d="M366,135 V163 H382" marker-end="url(#f2a)"/>
+            <path class="e" d="M366,135 V215 H382" marker-end="url(#f2a)"/>
+
+            <rect class="bxd" x="384" y="40" width="170" height="38" rx="6"/>
+            <text class="t" x="396" y="64">federated · live</text>
+            <text class="l" x="544" y="64" text-anchor="end">user token</text>
+            <rect class="bx" x="384" y="92" width="170" height="38" rx="6"/>
+            <text class="t" x="396" y="116">BM25 · top 200</text>
+            <text class="la" x="544" y="116" text-anchor="end">acl ∈ P</text>
+            <rect class="bx" x="384" y="144" width="170" height="38" rx="6"/>
+            <text class="t" x="396" y="168">dense · top 200</text>
+            <text class="la" x="544" y="168" text-anchor="end">acl ∈ P</text>
+            <rect class="bx" x="384" y="196" width="170" height="38" rx="6"/>
+            <text class="t" x="396" y="220">pages · top 50</text>
+            <text class="la" x="544" y="220" text-anchor="end">acl ∈ P</text>
+
+            <path class="e" d="M554,59 H572 V135"/>
+            <path class="e" d="M554,111 H572"/>
+            <path class="e" d="M554,163 H572"/>
+            <path class="e" d="M554,215 H572 V135"/>
+            <path class="e" d="M572,135 H588" marker-end="url(#f2a)"/>
+
+            <rect class="bx" x="590" y="110" width="70" height="50" rx="6"/>
+            <text class="t" x="625" y="131" text-anchor="middle">4 fuse</text>
+            <text class="s" x="625" y="148" text-anchor="middle">RRF</text>
+            <path class="e" d="M660,135 H684" marker-end="url(#f2a)"/>
+
+            <rect class="bx" x="686" y="110" width="100" height="50" rx="6"/>
+            <text class="t" x="736" y="131" text-anchor="middle">5 rerank</text>
+            <text class="s" x="736" y="148" text-anchor="middle">100 → 20</text>
+            <path class="e" d="M786,135 H810" marker-end="url(#f2a)"/>
+
+            <rect class="bxa" x="812" y="110" width="100" height="50" rx="6"/>
+            <text class="ta" x="862" y="131" text-anchor="middle">6 late check</text>
+            <text class="s" x="862" y="148" text-anchor="middle">drop + backfill</text>
+            <path class="e" d="M912,135 H936" marker-end="url(#f2a)"/>
+
+            <rect class="bx" x="938" y="110" width="110" height="50" rx="6"/>
+            <text class="t" x="993" y="131" text-anchor="middle">7 pack</text>
+            <text class="s" x="993" y="148" text-anchor="middle">expand · cite</text>
+            <path class="e" d="M1048,135 H1074" marker-end="url(#f2a)"/>
+            <text class="l" x="1061" y="124" text-anchor="middle">hits</text>
+
+            <!-- principal graph -->
+            <rect class="bx2" x="238" y="262" width="110" height="44" rx="6"/>
+            <text class="t" x="293" y="281" text-anchor="middle">principal graph</text>
+            <text class="s" x="293" y="297" text-anchor="middle">cached ≤ 5 min</text>
+            <path class="e" d="M293,262 V162" marker-end="url(#f2a)"/>
+            <text class="l" x="301" y="215">expand</text>
+
+            <!-- revocation lane -->
+            <rect class="bx2" x="590" y="262" width="196" height="44" rx="6"/>
+            <text class="t" x="602" y="281">ACL &amp; delete events</text>
+            <text class="s" x="602" y="297">priority lane · p99 ≤ 5 min</text>
+            <path class="e" d="M590,284 H500 V236" marker-end="url(#f2a)"/>
+            <text class="l" x="508" y="276">index update</text>
+
+            <!-- source of truth -->
+            <rect class="bxa" x="812" y="262" width="100" height="44" rx="6"/>
+            <text class="ta" x="862" y="281" text-anchor="middle">source</text>
+            <text class="s" x="862" y="297" text-anchor="middle">or SpiceDB</text>
+            <path class="ea" d="M862,260 V162" marker-start="url(#f2b)" marker-end="url(#f2b)"/>
+            <text class="la" x="872" y="215">bulk check</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 2.</b> Permissions are enforced twice. <code>acl ∈ P</code> is a filter inside every index channel (early binding: recall and speed). Step 6 re-checks the ~20 survivors against the source of truth (late binding: correctness when the index lags). Federated sources enforce their own ACLs because we call them with the user’s token. The 5-minute figures are proposed SLOs, not measurements.</figcaption>
+      </figure>
+
+      <h4>Retrieval</h4>
+      <ul>
+        <li><strong>Latency budget.</strong> In-engine retrieval takes tens to low hundreds of milliseconds. The top API rerankers add 265–614 ms (<a href="https://agentset.ai/rerankers">Agentset</a>, Feb 2026). The target for <code>search</code> is p95 ≈ 1 s.</li>
+        <li><strong>Reranker.</strong> Cohere Rerank 4 Pro or zerank-2 (ELO 1629 and 1638, the top two on that board). On ViDoRe V3, a text reranker (zerank-2) added +13.2 nDCG@10 to the text pipeline, while a visual reranker added +0.2. So rerank the text channel, and rerank visual hits by their page text. To self-host, use Qwen3-Reranker (Apache-2.0). The 8B model took 4.7 s on the same board, so size down and batch. zerank-2’s open weights are CC-BY-NC: use the API or buy a commercial licence.</li>
+        <li><strong>Text embeddings.</strong> Run a bake-off on the golden set between three candidates:
+          <ul>
+            <li>voyage-4-large for indexing with voyage-4-lite for queries. The vendor reports +3.87% over Gemini Embedding 001 and +8.20% over Cohere Embed v4 on RTEB.</li>
+            <li>Gemini Embedding 2.</li>
+            <li>Qwen3-Embedding-8B (Apache-2.0), for content that can’t leave the VPC.</li>
+          </ul>
+          Don’t pick from MTEB rankings; see §3.</li>
+      </ul>
+
+      <h4>Structured path</h4>
+      <ul>
+        <li><strong><code>describe_data</code></strong> returns only the relevant slice of the schema: candidate tables and columns with descriptions, join paths, matching values from the value index, related metrics and golden queries. On the Data Agent Benchmark, top agents spent about 20% of tool calls exploring, and both less and more hurt. Exploration should be a tool, not a hope.</li>
+        <li><strong><code>query_metrics</code></strong> compiles through the semantic layer, so covered questions are deterministic. dbt’s <a href="https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026">April 2026 re-run</a> on modelled data found:
+          <ul>
+            <li>Claude Sonnet 4.6: 90.0% with text-to-SQL, 98.2% through the semantic layer;</li>
+            <li>GPT-5.3 Codex: 84.1% with text-to-SQL, 100% through the semantic layer.</li>
+          </ul>
+          The semantic layer fails loudly when a question isn’t covered; text-to-SQL returns a plausible wrong number.</li>
+        <li><strong><code>run_sql</code></strong> is the fallback, and every step is a guard:
+          <ul>
+            <li>parse and validate (read-only statements only);</li>
+            <li>check cost with <code>EXPLAIN</code>, and cap rows and time;</li>
+            <li>execute at the source with the user’s identity: OAuth to Snowflake, database roles and row-level security in Postgres;</li>
+            <li>where identity passthrough is impossible, use a service role with an explicit policy check and the human named in the audit record.</li>
+          </ul>
+          Results come back with the SQL, the source and the as-of time; that is the citation for a number. Answers built this way are labelled as unverified SQL.</li>
+        <li><strong>Cross-database joins</strong> go through Trino only when a question genuinely spans two systems. Starburst now <a href="https://www.helpnetsecurity.com/2026/06/09/paras-malhotra-starburst-federated-query-security/">treats MCP agents as scoped service accounts</a>. Otherwise, push the query down to the one source that holds the data.</li>
+      </ul>
+
+      <h4>The planner (<code>ask</code>) and hybrid questions</h4>
+      <figure>
+        <div class="fig">
+          <svg class="dg f3" viewBox="0 0 1080 340" role="img" aria-label="Hybrid question walkthrough. The planner requests a metric; the semantic layer returns 10 customer IDs; the entity store maps them to 14 contract documents; the extraction table returns 4 matching rows with page citations; the validator checks the rows fall within the top 10 and are cited; the planner answers with SQL and page citations.">
+            <defs>
+              <marker id="f3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah" fill="currentColor"/></marker>
+            </defs>
+            <rect class="lane" x="0" y="84" width="1080" height="64"/>
+            <rect class="lane" x="0" y="212" width="1080" height="64"/>
+            <line class="sep" x1="0" y1="84" x2="1080" y2="84"/>
+            <line class="sep" x1="0" y1="148" x2="1080" y2="148"/>
+            <line class="sep" x1="0" y1="212" x2="1080" y2="212"/>
+            <line class="sep" x1="0" y1="276" x2="1080" y2="276"/>
+            <text class="lay" x="12" y="56">ASK PLANNER</text>
+            <text class="lay" x="12" y="120">SEMANTIC LAYER</text>
+            <text class="lay" x="12" y="184">ENTITY STORE</text>
+            <text class="lay" x="12" y="248">EXTRACTION TABLE</text>
+            <text class="lay" x="12" y="312">VALIDATOR</text>
+
+            <!-- steps -->
+            <rect class="bx" x="146" y="32" width="156" height="40" rx="6"/>
+            <text class="tm" x="158" y="49">1 plan</text>
+            <text class="s" x="158" y="64">SQL → entity → table</text>
+
+            <rect class="bx" x="342" y="96" width="156" height="40" rx="6"/>
+            <text class="tm" x="354" y="113">2 query_metrics</text>
+            <text class="s" x="354" y="128">revenue · Q2 · top 10</text>
+
+            <rect class="bx" x="538" y="160" width="156" height="40" rx="6"/>
+            <text class="tm" x="550" y="177">3 lookup_entity</text>
+            <text class="s" x="550" y="192">customer → contracts</text>
+
+            <rect class="bx" x="734" y="224" width="156" height="40" rx="6"/>
+            <text class="tm" x="746" y="241">4 query_table</text>
+            <text class="s" x="746" y="256">renews &lt; 2027-03-31</text>
+
+            <rect class="bx" x="930" y="288" width="146" height="40" rx="6"/>
+            <text class="tm" x="942" y="305">5 validate</text>
+            <text class="s" x="942" y="320">⊆ top 10 · cited</text>
+
+            <rect class="bxa" x="930" y="32" width="146" height="40" rx="6"/>
+            <text class="tm" x="942" y="49">6 answer</text>
+            <text class="s" x="942" y="64">rows + SQL + pages</text>
+
+            <!-- handoffs -->
+            <path class="e" d="M302,52 H322 V116 H340" marker-end="url(#f3a)"/>
+            <path class="e" d="M498,116 H518 V180 H536" marker-end="url(#f3a)"/>
+            <path class="e" d="M694,180 H714 V244 H732" marker-end="url(#f3a)"/>
+            <path class="e" d="M890,244 H910 V308 H928" marker-end="url(#f3a)"/>
+            <path class="e" d="M1003,288 V74" marker-end="url(#f3a)"/>
+
+            <!-- typed anchors -->
+            <rect class="pill" x="268" y="75" width="108" height="18" rx="9"/>
+            <text class="la" x="322" y="88" text-anchor="middle">metric request</text>
+            <rect class="pill" x="460" y="139" width="116" height="18" rx="9"/>
+            <text class="la" x="518" y="152" text-anchor="middle">customer_id ×10</text>
+            <rect class="pill" x="673" y="203" width="82" height="18" rx="9"/>
+            <text class="la" x="714" y="216" text-anchor="middle">doc_id ×14</text>
+            <rect class="pill" x="856" y="267" width="108" height="18" rx="9"/>
+            <text class="la" x="910" y="280" text-anchor="middle">4 rows + cites</text>
+            <rect class="pill" x="982" y="171" width="42" height="18" rx="9"/>
+            <text class="la" x="1003" y="184" text-anchor="middle">pass</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 3.</b> “Which top-10 customers by Q2 revenue have contracts auto-renewing before 31 Mar 2027?” The counts are illustrative. Every handoff passes typed IDs, not prose, which is the fix for the anchor-dropout failure HybridDeepResearch describes. With no extraction table for contracts, step 4 becomes <code>search(clause, doc_id ∈ …)</code> then <code>fetch(page)</code>, and the validator requires a quoted clause per row. A failed check sends the planner back to step 1 with the gap named.</figcaption>
+      </figure>
+      <ul>
+        <li><strong>The plan comes from the trusted question only.</strong> Retrieved text is data and can’t add tool calls; this is the <a href="https://arxiv.org/pdf/2503.18813">CaMeL</a> pattern. It also enforces the ordering that stops the salience trap.</li>
+        <li><strong>Sufficiency before synthesis.</strong> The validator checks the intersection and whether the evidence is enough to answer. Google reports up to 34% accuracy gains on factuality datasets from a <a href="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/">sufficient-context agent</a> (vendor-reported, Jun 2026). When evidence is short, the answer says what is missing.</li>
+        <li><strong>Aggregates without an extraction table.</strong> Run a semantic map/filter over a candidate set narrowed by metadata, with a hard budget in documents and dollars, and disclose coverage (“checked 180 of 1,240 contracts”). <a href="https://lotus-ai.readthedocs.io/en/latest/">LOTUS</a>, DocETL and Palimpzest are the reference designs.</li>
+        <li><strong>Keep bulky results out of the model’s context.</strong> An optional <code>analyze</code> tool runs Python/DuckDB over tool outputs in a sandbox with no network access. This is the <a href="https://www.anthropic.com/engineering/code-execution-with-mcp">code-execution-with-MCP</a> pattern; Anthropic measured 150,000 → 2,000 tokens in its example. It <a href="https://arxiv.org/pdf/2602.15945">widens the attack surface</a>, so it ships last and never gets egress.</li>
+      </ul>
+
+      <!-- 5.6 -->
+      <h3 id="interface"><span class="n">5.6</span>Agent interface</h3>
+      <dl class="adr">
+        <dt>Decision</dt>
+        <dd class="decision">An MCP server on the 2026-07-28 specification is the primary interface. A REST/OpenAPI mirror serves non-MCP clients. The <code>ask</code> planner can also be published as an A2A agent.</dd>
+        <dt>Why</dt>
+        <dd>MCP is the protocol the major agent hosts speak. Since Dec 2025 it has been governed by the Linux Foundation’s <a href="https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation">Agentic AI Foundation</a>, which A2A has also joined. The <a href="https://blog.modelcontextprotocol.io/posts/2026-07-28/">July 2026 revision</a> changes four things that matter here:
+          <ul>
+            <li>No initialize handshake or session IDs, so any request can land on any server instance behind a plain load balancer.</li>
+            <li><code>Mcp-Method</code>/<code>Mcp-Name</code> headers let the gateway route and rate-limit per tool without parsing bodies.</li>
+            <li>List results carry <code>ttlMs</code> for caching.</li>
+            <li>Multi Round-Trip Requests handle “which Acme did you mean?”, and the Tasks extension handles long <code>ask</code> runs by polling.</li>
+          </ul></dd>
+        <dt>Rejected</dt>
+        <dd>A custom SDK per agent framework: the M×N integration problem MCP exists to remove.</dd>
+        <dt>Revisit when</dt>
+        <dd>Other agents need to delegate whole research tasks: publish <code>ask</code> as an A2A agent card.</dd>
+      </dl>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Tool</th><th>Question classes</th><th>Backed by</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><code>search</code></td><td class="num">1, 3, 8</td><td>hybrid and visual indexes, federated sources, reranker</td><td>hits: id, title, url, snippet, citation</td></tr>
+            <tr><td><code>fetch</code></td><td>reading a hit</td><td>lake IR, page images</td><td>section or page text, tables, optional image</td></tr>
+            <tr><td><code>exact_search</code></td><td class="num">2</td><td>Lucene phrase and regex over chunks</td><td>hits with offsets</td></tr>
+            <tr><td><code>browse</code></td><td class="num">4</td><td>document cards, ACL-filtered facets</td><td>cards and facet counts</td></tr>
+            <tr><td><code>lookup_entity</code></td><td class="num">3, 6</td><td>entity store</td><td>canonical entity, aliases, linked database keys, top mentions</td></tr>
+            <tr><td><code>describe_data</code></td><td class="num">5, 6</td><td>catalog, value index, golden queries</td><td>tables, columns, joins, values, metrics</td></tr>
+            <tr><td><code>query_metrics</code></td><td class="num">5</td><td>semantic layer → source database</td><td>table, compiled SQL, as-of time</td></tr>
+            <tr><td><code>run_sql</code></td><td>5 (fallback)</td><td>source database with identity passthrough</td><td>capped rows, SQL, as-of time</td></tr>
+            <tr><td><code>query_table</code></td><td class="num">4, 6</td><td>DuckDB over document and extraction tables</td><td>rows with page citations</td></tr>
+            <tr><td><code>ask</code></td><td class="num">6, 7</td><td>planner over all of the above</td><td>answer with citations (Tasks for long runs)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Per-client tool profiles.</strong> Every request under the 2026-07-28 spec carries client identity, so the gateway can serve different tool sets. The <code>compat</code> profile exposes exactly the two read-only tools that <a href="https://developers.openai.com/api/docs/mcp">ChatGPT deep research and company knowledge require</a>. ChatGPT only renders a citation when <code>url</code> is non-empty, so every hit carries a deep link or a signed viewer URL. The <code>standard</code> profile exposes the full set.</li>
+      </ul>
+<pre><span class="c">// compat profile: the shape ChatGPT deep research expects</span>
+search(query: string) → { results: [{ id, title, url }] }
+fetch(id: string)     → { id, title, text, url, metadata }</pre>
+      <ul>
+        <li><strong>Auth.</strong> OAuth 2.1 with protected-resource metadata (RFC 9728), resource indicators (RFC 8707), Client ID Metadata Documents (dynamic client registration is deprecated in 2026-07-28) and RFC 9207 issuer validation. Every audit record names both the human and the agent.</li>
+        <li><strong>Tool design.</strong> Return IDs, titles, snippets and citations, and let the agent <code>fetch</code> what it needs: the “just-in-time” loading in Anthropic’s <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">context engineering guide</a> (Sep 2025). Keep tools non-overlapping. If an engineer can’t say which tool fits a question, the model can’t either.</li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section id="crosscut">
+      <h2><span class="n">6</span>Cross-cutting planes</h2>
+
+      <h3 id="perm"><span class="n">6.1</span>Permissions</h3>
+      <ul>
+        <li><strong>Identity map and principal graph.</strong> Map every source user to an IdP identity. Build a principal graph of users, groups (nested groups flattened into precomputed transitive memberships), domains, and link-sharing, modelled explicitly.</li>
+        <li><strong>Early and late binding</strong>, as in Figure 2. Chunks store principal IDs, and queries filter by the user’s expanded principal set. Final candidates are bulk-checked against the source before anything is returned.</li>
+        <li><strong>Leak paths teams forget:</strong>
+          <ul>
+            <li>Facet counts and “N results hidden” messages reveal that documents exist, so compute facets after filtering and never show hidden counts.</li>
+            <li>Generate snippets only after the late check.</li>
+            <li>Key caches by a hash of the principal set.</li>
+            <li><code>lookup_entity</code> returns only mentions the user can see.</li>
+          </ul></li>
+        <li><strong>Complex inheritance.</strong> When sources need inheritance or custom sharing rules across systems, model them once in <a href="https://authzed.com/docs/spicedb/ops/secure-rag-pipelines">SpiceDB</a> rather than in each connector. Use LookupResources for pre-filtering and bulk checks for post-filtering. AuthZed’s <a href="https://authzed.com/blog/why-large-organizations-need-materialize">Materialize</a> precomputes permission sets, but is early access.</li>
+        <li><strong>Databases.</strong> Prefer identity passthrough. Where access runs through a service role, the audit record names the human.</li>
+      </ul>
+
+      <h3 id="security"><span class="n">6.2</span>Security</h3>
+      <p>The engine combines two legs of the “lethal trifecta”: private data, and untrusted content (any document can carry a prompt injection). The third leg, an exfiltration channel, lives in whatever other tools the client agent holds. The engine can’t remove that leg, so it makes itself a poor place to start an attack.</p>
+      <ul>
+        <li><strong>Read-only by design.</strong> No write tools, and no outbound network from the engine or its sandbox.</li>
+        <li><strong>Provenance on every result:</strong> source, author and sensitivity label. The planner treats retrieved text as data (CaMeL-style separation of control and data flow).</li>
+        <li><strong>Injection scanning at ingestion.</strong> Chunks with instruction-like content are flagged, labelled and down-ranked, not silently deleted.</li>
+        <li><strong>Sensitivity labels travel with chunks.</strong> Policy can withhold highly confidential content from specific clients or agents.</li>
+        <li><strong>Volume anomaly detection</strong> on fetch patterns per identity, to catch bulk extraction.</li>
+        <li><strong>Supply chain.</strong> Pin and hash-verify dependencies and images, and keep publishing credentials away from CI jobs that run third-party tools. The case study is the <a href="https://blog.pypi.org/posts/2026-04-02-incident-report-litellm-telnyx-supply-chain-attack/">LiteLLM compromise</a> of 24 Mar 2026: malicious 1.82.7 and 1.82.8 releases were live on PyPI for about 40 minutes, traced to a compromised Trivy step in CI.</li>
+      </ul>
+
+      <h3 id="models"><span class="n">6.3</span>Models and gateway</h3>
+      <ul>
+        <li>All model calls (LLMs, embedders, rerankers) go through one gateway for routing, keys, budgets and tracing. Either self-host a pinned, hash-verified build or use your cloud’s native gateway.</li>
+        <li>A small, fast model handles query analysis, enrichment and document cards. A frontier model is used only for <code>ask</code> planning and synthesis. The engine stays model-agnostic, and internal calls are pinned to versions.</li>
+        <li>Embedders and rerankers are versioned services. Changing a version triggers the evaluation gate (§6.4) and a blue/green projection (§5.3).</li>
+      </ul>
+
+      <h3 id="eval"><span class="n">6.4</span>Evaluation and observability</h3>
+      <ul>
+        <li><strong>Golden set before features.</strong> Collect at least 50 real questions per class (§2), each with gold evidence: document and page, or verified SQL and its result. Real questions come from pilot users; synthetic ones must be human-verified. The <a href="https://www.vldb.org/cidrdb/papers/2026/p5-jin.pdf">CIDR 2026 audit</a> found annotation errors in 52.8% of BIRD Mini-Dev and 66.1% of audited Spider 2.0-Snow examples, enough to move rankings by up to three places.</li>
+        <li><strong>Metrics per stage:</strong>
+          <ul>
+            <li>parser element accuracy;</li>
+            <li>retrieval recall@k and nDCG, and rerank lift;</li>
+            <li>answer correctness, citation precision and groundedness;</li>
+            <li>SQL execution accuracy;</li>
+            <li>abstention quality;</li>
+            <li>ACL red-team pass rate and revocation lag.</li>
+          </ul></li>
+        <li><strong>CI gate</strong> on every parser, embedder, reranker, prompt or model change.</li>
+        <li><strong>Tracing.</strong> Emit OpenTelemetry GenAI spans for agents, model calls and MCP. The conventions are still in Development status and moved to <a href="https://github.com/open-telemetry/semantic-conventions-genai">their own repository</a> on 12 Jun 2026, so pin the version. Send traces to Langfuse, self-hosted; it is open source and was <a href="https://clickhouse.com/blog/clickhouse-acquires-langfuse-open-source-llm-observability">acquired by ClickHouse</a> in Jan 2026.</li>
+        <li><strong>Online signals:</strong> user feedback, citation clicks, the rate of “insufficient evidence” answers, and latency and cost per tool.</li>
+      </ul>
+    </section>
+
+    <!-- 7 -->
+    <section id="sizing">
+      <h2><span class="n">7</span>Sizing math</h2>
+      <p>This works through 10⁷ pages (≈2×10⁷ chunks), using only figures verified above, so you can rescale it to your numbers.</p>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Item</th><th>Calculation</th><th class="num">Result</th></tr></thead>
+          <tbody>
+            <tr><td class="k">VLM parse, every page</td><td>10,000,000 pages ÷ 1.62 pages/s (PaddleOCR-VL, A100, vLLM)</td><td class="num">≈ 1,715 A100-hours</td></tr>
+            <tr><td class="k">VLM parse via API</td><td>Mistral OCR 4 at $2 per 1,000 pages (batch) or $4 (standard)</td><td class="num">$20,000 – $40,000</td></tr>
+            <tr><td class="k">Text embedding, full pass</td><td>2×10⁷ chunks × ~500 tokens = 10¹⁰ tokens × $0.20/M (Gemini Embedding 2 list price, for scale)</td><td class="num">≈ $2,000</td></tr>
+            <tr><td class="k">Vector memory, fp32</td><td>2×10⁷ × 1,024 dims × 4 bytes</td><td class="num">81.9 GB</td></tr>
+            <tr><td class="k">Vector memory, 1-bit BBQ</td><td>2×10⁷ × 128 bytes, plus full precision on disk for rescoring</td><td class="num">≈ 2.6 GB</td></tr>
+            <tr><td class="k">Same at 2×10⁸ chunks</td><td>×10</td><td class="num">819 GB vs ≈ 26 GB</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>What the numbers say.</strong> Re-embedding the corpus is cheap. Re-parsing it is not, and re-crawling it may be impossible. That ordering is why the lake stores parse output, why the router matters more than the parser, and why the index choice hinges on quantisation rather than raw ANN speed.</p>
+      <p class="note">The A100 figure was measured for the original PaddleOCR-VL on vLLM 0.10.2; version 1.6 keeps the same ~1B architecture line, but re-measure on your hardware. The embedding figure uses one list price to show scale; others will differ.</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="not-chosen">
+      <h2><span class="n">8</span>What we deliberately didn’t choose</h2>
+      <ul>
+        <li><strong>A vector database as the retrieval system.</strong> Vectors are one of three channels. Identifiers need lexical search, and counts need tables (§2).</li>
+        <li><strong>A full GraphRAG index up front.</strong> It matches plain RAG once token budgets are equal, and costs far more to build. Build the entity layer instead (§5.4).</li>
+        <li><strong>Text-to-SQL on raw schemas as the metrics path.</strong> It produces plausible wrong numbers. The semantic layer comes first (§5.5).</li>
+        <li><strong>Stuffing long context instead of retrieving.</strong> All 18 models in Chroma’s <a href="https://www.trychroma.com/research/context-rot">context-rot study</a> degraded as input grew, and a 10⁸-page corpus doesn’t fit anyway.</li>
+        <li><strong>Federating every source over MCP.</strong> It is slow and can’t be ranked across sources. Use it only where it’s required (§5.1).</li>
+        <li><strong>LLM-contextualised chunking everywhere.</strong> The gains were rarely consistent at scale, for 5–50× the processing time (§5.2).</li>
+        <li><strong>Multi-vector ColPali embeddings for every page.</strong> About a thousand vectors per page. Single-vector visual embeddings plus a text reranker capture most of the gain (§5.4).</li>
+        <li><strong>Picking components from leaderboards.</strong> The legal-set MTEB reversal, OmniDocBench’s document mix and the text-to-SQL annotation audit all point the same way (§3, §6.4).</li>
+      </ul>
+    </section>
+
+    <!-- 9 -->
+    <section id="sequence">
+      <h2><span class="n">9</span>Build sequence</h2>
+      <p>This is ordered by dependency, and each stage has an exit gate you can measure. Stage 0 is the one teams skip, and the one that decides whether the later stages can be judged at all.</p>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Stage</th><th>Build</th><th>Exit gate</th></tr></thead>
+          <tbody>
+            <tr><td class="k">0 · Measure</td><td>Pick 2–3 document sources and one database domain. Collect 300+ real questions across the eight classes, with gold evidence. Run a naive baseline (single-vector RAG plus raw text-to-SQL).</td><td>Golden set frozen; baseline scores recorded; ACL red-team suite written</td></tr>
+            <tr><td class="k">1 · Documents</td><td>Connectors with ACL capture, Temporal pipeline, Docling with router and PaddleOCR-VL, the lake, OpenSearch hybrid plus reranker, early and late ACL checks, MCP <code>search</code>/<code>fetch</code>/<code>exact_search</code>/<code>browse</code> with the compat profile, tracing</td><td>Classes 1–3 beat baseline by your chosen margin; zero leaks in the red-team suite; revocation p99 within SLO</td></tr>
+            <tr><td class="k">2 · Databases</td><td>DataHub ingest, value index, golden queries, semantic models for the top ~20 metrics, <code>describe_data</code>/<code>query_metrics</code>/<code>run_sql</code> with identity passthrough</td><td>≥ 95% on questions the semantic layer covers; text-to-SQL fallback measured and labelled</td></tr>
+            <tr><td class="k">3 · The bridge</td><td>Entity store with Splink linkage, extraction tables for the two highest-volume document types, <code>ask</code> with gated hybrid plans and sufficiency checks</td><td>Class-6 accuracy target met; correct abstentions when evidence is missing</td></tr>
+            <tr><td class="k">4 · Breadth</td><td>Audio, visual channel, federated sources, more connectors, cost tuning, A2A if needed</td><td>Per-source recall and cost within budget</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="buy">
+      <h2><span class="n">10</span>Build vs buy</h2>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Option</th><th>Strong when</th><th>Falls short on this brief</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Glean</td><td>Document Q&amp;A across 100+ SaaS apps; permission-aware; <a href="https://docs.glean.com/administration/platform/mcp/about">remote MCP server</a></td><td>Analytical SQL depth. Slack coverage is limited by Slack’s API terms.</td></tr>
+            <tr><td class="k">M365 Copilot, Gemini Enterprise</td><td>Your content lives mostly inside one suite</td><td>Questions that cross suites and databases</td></tr>
+            <tr><td class="k">Snowflake Intelligence</td><td>Warehouse-centric organisations willing to bring documents into Snowflake. Snowflake now <a href="https://docs.snowflake.com/en/release-notes/2026/other/2026-08-28-cortex-analyst-transition-cortex-agents">steers Cortex Analyst users to Cortex Agents</a> (28 Aug 2026).</td><td>Postgres, MySQL and other non-Snowflake sources become second-class; lock-in</td></tr>
+            <tr><td class="k">Onyx (open source)</td><td>Self-hosted document search with 50+ permission-syncing connectors, MCP and an OpenSearch index</td><td>Structured and hybrid analytics are not its core</td></tr>
+            <tr><td class="k">Airweave (open source)</td><td>A retrieval layer over apps and databases via MCP and SDKs</td><td>Test ACL depth and parsing quality per source</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Verdict.</strong> Build the lake, projections, serving and interface layers (§5.3–5.6), plus the structured path, the entity bridge and the evaluation harness. That is where the hybrid requirement and your data live, and no product above covers all of it. Reuse connector code from Onyx, Airweave or Airbyte where it already syncs permissions, after it passes your red-team suite.</p>
+    </section>
+
+    <!-- 11 -->
+    <section id="open">
+      <h2><span class="n">11</span>Open questions that change the design</h2>
+      <ol>
+        <li><strong>Can document content go to third-party model APIs</strong> for embedding, parsing and reranking? If yes, the API defaults above stand. If no, swap in Qwen3-Embedding, Qwen3-VL-Embedding, Qwen3-Reranker, PaddleOCR-VL and Granite Speech, which means one more GPU pool to operate.</li>
+        <li><strong>What is the real scale?</strong> Documents, pages, audio hours, databases, tables and concurrent users. Under ~10⁷ chunks, Postgres-only is simpler; past ~10⁹, look at Vespa.</li>
+        <li><strong>Where do documents live?</strong> Microsoft 365, Google Workspace, file shares, something else. This sets connector order and the shape of the ACL model.</li>
+        <li><strong>Is there a semantic layer or dbt project today, and is Snowflake the main warehouse?</strong> This decides between MetricFlow/Ossie and Snowflake semantic views.</li>
+        <li><strong>What compliance applies?</strong> GDPR, HIPAA, residency, deletion SLAs, retention, legal hold. These set the revocation SLO, the regions, and whether audio may be stored at all.</li>
+      </ol>
+    </section>
+
+    <!-- 12 -->
+    <section id="sources" class="sources">
+      <h2><span class="n">12</span>Sources</h2>
+      <p class="note">Checked on 13 Sep 2026. Figures marked vendor-reported come from the vendor’s own benchmark.</p>
+
+      <h3>Protocol and agent interface</h3>
+      <ul>
+        <li><a href="https://blog.modelcontextprotocol.io/posts/2026-07-28/">MCP 2026-07-28 specification release</a></li>
+        <li><a href="https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/">MCP 2026 roadmap (9 Mar 2026)</a></li>
+        <li><a href="https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation">Agentic AI Foundation formation (9 Dec 2025)</a></li>
+        <li><a href="https://www.linuxfoundation.org/press/a2a-protocol-surpasses-150-organizations-lands-in-major-cloud-platforms-and-sees-enterprise-production-use-in-first-year">A2A at one year</a></li>
+        <li><a href="https://developers.openai.com/api/docs/mcp">OpenAI: MCP servers for deep research (search/fetch)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic: effective context engineering (29 Sep 2025)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic: code execution with MCP (4 Nov 2025)</a></li>
+        <li><a href="https://arxiv.org/pdf/2602.15945">From tool orchestration to code execution: MCP design choices</a></li>
+      </ul>
+
+      <h3>Parsing, chunking, spreadsheets</h3>
+      <ul>
+        <li><a href="https://github.com/opendatalab/OmniDocBench">OmniDocBench leaderboard (updated 11 Sep 2026)</a></li>
+        <li><a href="https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6">PaddleOCR-VL-1.6 model card</a> · <a href="https://arxiv.org/abs/2606.03264">technical report</a></li>
+        <li><a href="https://arxiv.org/html/2510.14528v2">PaddleOCR-VL paper (throughput)</a></li>
+        <li><a href="https://docling-project.github.io/docling/">Docling documentation</a> · <a href="https://github.com/docling-project/docling">repository</a></li>
+        <li><a href="https://mistral.ai/news/ocr-4/">Mistral OCR 4 (23 Jun 2026)</a></li>
+        <li><a href="https://github.com/opendatalab/MinerU/blob/master/LICENSE.md">MinerU licence</a></li>
+        <li><a href="https://www.llamaindex.ai/blog/olmocr-bench-review-insights-and-pitfalls-on-an-ocr-benchmark">LlamaIndex: olmOCR-bench pitfalls</a></li>
+        <li><a href="https://arxiv.org/html/2608.16586v1">When is complex chunking worth it? (Aug 2026)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic: contextual retrieval</a></li>
+        <li><a href="https://arxiv.org/html/2603.07316">FinSheet-Bench</a></li>
+      </ul>
+
+      <h3>Retrieval, embeddings, reranking</h3>
+      <ul>
+        <li><a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a></li>
+        <li><a href="https://arxiv.org/abs/2605.05242">Direct corpus interaction for agentic search</a></li>
+        <li><a href="https://blog.voyageai.com/2026/01/15/voyage-4/">Voyage 4 family (15 Jan 2026)</a></li>
+        <li><a href="https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-embedding-2-generally-available/">Gemini Embedding 2 GA</a> · <a href="https://arxiv.org/abs/2605.27295">paper</a></li>
+        <li><a href="https://arxiv.org/pdf/2601.04720">Qwen3-VL-Embedding and Qwen3-VL-Reranker</a></li>
+        <li><a href="https://agentset.ai/rerankers">Agentset reranker leaderboard (15 Feb 2026)</a></li>
+        <li><a href="https://www.premai.io/blog/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting/">MTEB vs in-domain case study</a></li>
+        <li><a href="https://www.trychroma.com/research/context-rot">Chroma: context rot</a></li>
+        <li><a href="https://research.google/blog/unlocking-dependable-responses-with-gemini-enterprise-agent-platforms-agentic-rag/">Google: agentic RAG with a sufficient-context agent</a></li>
+      </ul>
+
+      <h3>Search engines and storage</h3>
+      <ul>
+        <li><a href="https://www.instaclustr.com/blog/opensearch-version-3-6-release-smart-agents-and-fast-search/">OpenSearch 3.6 release summary</a></li>
+        <li><a href="https://docs.onyx.app/changelog">Onyx changelog (Vespa → OpenSearch)</a></li>
+        <li><a href="https://finance.yahoo.com/news/elastic-completes-acquisition-jina-ai-130200685.html">Elastic completes Jina AI acquisition</a></li>
+        <li><a href="https://blog.vespa.ai/scaling-colpali-to-billions/">Vespa: ColPali at billions</a> · <a href="https://blog.vespa.ai/vespa-newsletter-february-2026/">Feb 2026 newsletter</a></li>
+        <li><a href="https://turbopuffer.com/docs/tradeoffs">turbopuffer trade-offs</a></li>
+        <li><a href="https://qdrant.tech/blog/qdrant-1.16.x/">Qdrant 1.16</a></li>
+        <li><a href="https://milvus.io/blog/announcing-milvus-3-lake-native-vector-search-and-a-more-powerful-retrieval-engine.md">Milvus 3.0</a></li>
+        <li><a href="https://www.tigerdata.com/blog/pg-textsearch-bm25-full-text-search-postgres">pg_textsearch 1.0</a></li>
+        <li><a href="https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-s3-vectors-generally-available/">Amazon S3 Vectors GA</a></li>
+        <li><a href="https://atlan.com/know/snowflake/apache-iceberg-v3/">Apache Iceberg v3 on Snowflake</a></li>
+      </ul>
+
+      <h3>Structured and hybrid</h3>
+      <ul>
+        <li><a href="https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026">dbt: semantic layer vs text-to-SQL, 2026</a></li>
+        <li><a href="https://ossie.apache.org/updates/ossie-enters-apache-incubator/">Apache Ossie enters incubation</a> · <a href="https://www.getdbt.com/blog/the-osi-spec-updates">OSI spec updates</a></li>
+        <li><a href="https://www.vldb.org/cidrdb/papers/2026/p5-jin.pdf">Text-to-SQL benchmarks are broken (CIDR 2026)</a></li>
+        <li><a href="https://spider2-sql.github.io/">Spider 2.0 leaderboard</a></li>
+        <li><a href="https://huggingface.co/papers/2603.20576">Data Agent Benchmark</a></li>
+        <li><a href="https://www.snowflake.com/en/blog/engineering/hybrid-deep-research-benchmark/">HybridDeepResearch (Snowflake)</a></li>
+        <li><a href="https://docs.datahub.com/docs/features/feature-guides/mcp">DataHub MCP server</a></li>
+        <li><a href="https://lotus-ai.readthedocs.io/en/latest/">LOTUS semantic operators</a></li>
+        <li><a href="https://www.helpnetsecurity.com/2026/06/09/paras-malhotra-starburst-federated-query-security/">Starburst: agents as service accounts</a></li>
+      </ul>
+
+      <h3>Graphs and entities</h3>
+      <ul>
+        <li><a href="https://arxiv.org/html/2502.11371v3">RAG vs GraphRAG: a systematic evaluation</a></li>
+        <li><a href="https://github.com/GraphRAG-Bench/GraphRAG-Benchmark">GraphRAG-Bench (ICLR 2026)</a></li>
+        <li><a href="https://thedataquarry.com/blog/from-kuzu-to-ladybug/">From Kùzu to LadybugDB</a></li>
+        <li><a href="https://moj-analytical-services.github.io/splink/index.html">Splink</a></li>
+        <li><a href="https://tilores.io/content/can-llms-be-used-for-entity-resolution/">Can LLMs do entity resolution? (Tilores)</a></li>
+      </ul>
+
+      <h3>Permissions and security</h3>
+      <ul>
+        <li><a href="https://authzed.com/docs/spicedb/ops/secure-rag-pipelines">SpiceDB: securing RAG pipelines</a></li>
+        <li><a href="https://authzed.com/blog/why-large-organizations-need-materialize">AuthZed Materialize</a></li>
+        <li><a href="https://www.computerworld.com/article/4005509/salesforce-changes-slack-api-terms-to-block-bulk-data-access-for-llms.html">Slack API terms restrict bulk access</a></li>
+        <li><a href="https://arxiv.org/pdf/2503.18813">CaMeL: defeating prompt injections by design</a></li>
+        <li><a href="https://developer.microsoft.com/blog/protecting-against-indirect-injection-attacks-mcp">Microsoft: indirect injection in MCP</a></li>
+        <li><a href="https://blog.pypi.org/posts/2026-04-02-incident-report-litellm-telnyx-supply-chain-attack/">PyPI incident report: LiteLLM</a></li>
+      </ul>
+
+      <h3>Audio</h3>
+      <ul>
+        <li><a href="https://huggingface.co/spaces/hf-audio/open_asr_leaderboard">Open ASR Leaderboard</a></li>
+        <li><a href="https://www.marktechpost.com/2026/07/23/best-open-speech-recognition-asr-models-in-2026-wer-languages-latency-and-license-compared/">Open ASR models compared (Jul 2026)</a></li>
+        <li><a href="https://www.pyannote.ai/blog/community-1">pyannote Community-1</a> · <a href="https://www.pyannote.ai/benchmark">diarization benchmark</a></li>
+        <li><a href="https://www.assemblyai.com/blog/assemblyai-universal-3-pro-vs-elevenlabs-scribe-v2-compared">AssemblyAI vs Scribe v2 (vendor)</a></li>
+      </ul>
+
+      <h3>Operations and market</h3>
+      <ul>
+        <li><a href="https://temporal.io/blog/how-rapidflare-built-a-million-document-ingestion-pipeline-for-agents-on-temporal">Rapidflare on Temporal</a></li>
+        <li><a href="https://docs.ray.io/en/latest/data/examples/unstructured_data_ingestion/content/unstructured_data_ingestion.html">Ray Data unstructured ingestion</a></li>
+        <li><a href="https://github.com/open-telemetry/semantic-conventions-genai">OTel GenAI semantic conventions</a></li>
+        <li><a href="https://clickhouse.com/blog/clickhouse-acquires-langfuse-open-source-llm-observability">ClickHouse acquires Langfuse</a></li>
+        <li><a href="https://docs.glean.com/administration/platform/mcp/about">Glean MCP server</a></li>
+        <li><a href="https://onyx.app/connectors">Onyx connectors</a> · <a href="https://github.com/airweave-ai/airweave">Airweave</a> · <a href="https://airbyte.com/agentic-data/pre-built-connectors-for-ai-agents">Airbyte agent connectors</a></li>
+        <li><a href="https://www.llamaindex.ai/blog/does-mcp-kill-vector-search">LlamaIndex: MCP vs vector search</a></li>
+        <li><a href="https://docs.snowflake.com/en/release-notes/2026/other/2026-08-28-cortex-analyst-transition-cortex-agents">Snowflake: Cortex Analyst → Cortex Agents</a></li>
+      </ul>
+    </section>
+
+    <footer>
+      Draft v0.1 for discussion, prepared from web research on 13 Sep 2026. Components marked Quarterly or Bake-off should be re-verified on your own data before procurement. SLO figures are proposals, not measurements.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
