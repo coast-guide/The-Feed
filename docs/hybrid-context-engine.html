@@ -333,7 +333,11 @@ html { scroll-behavior: smooth; }
       <li><a href="#summary"><span>1</span>Decision summary</a></li>
       <li><a href="#questions"><span>2</span>The questions decide it</a></li>
       <li><a href="#principles"><span>3</span>Principles</a></li>
-      <li><a href="#glance"><span>4</span>System at a glance</a></li>
+      <li><a href="#glance"><span>4</span>System at a glance</a>
+        <ol>
+          <li><a href="#interfaces"><span>4.1</span>Interfaces</a></li>
+        </ol>
+      </li>
       <li><a href="#layers"><span>5</span>Layers</a>
         <ol>
           <li><a href="#connect"><span>5.1</span>Connect &amp; sync</a></li>
@@ -347,57 +351,61 @@ html { scroll-behavior: smooth; }
       <li><a href="#crosscut"><span>6</span>Cross-cutting planes</a>
         <ol>
           <li><a href="#perm"><span>6.1</span>Permissions</a></li>
-          <li><a href="#security"><span>6.2</span>Security</a></li>
-          <li><a href="#models"><span>6.3</span>Models &amp; gateway</a></li>
-          <li><a href="#eval"><span>6.4</span>Evaluation</a></li>
+          <li><a href="#policy"><span>6.2</span>Policy &amp; compliance</a></li>
+          <li><a href="#security"><span>6.3</span>Security</a></li>
+          <li><a href="#models"><span>6.4</span>Models &amp; gateway</a></li>
+          <li><a href="#eval"><span>6.5</span>Evaluation</a></li>
         </ol>
       </li>
       <li><a href="#sizing"><span>7</span>Sizing math</a></li>
       <li><a href="#not-chosen"><span>8</span>Deliberately not chosen</a></li>
       <li><a href="#sequence"><span>9</span>Build sequence</a></li>
       <li><a href="#buy"><span>10</span>Build vs buy</a></li>
-      <li><a href="#open"><span>11</span>Open questions</a></li>
+      <li><a href="#resolved"><span>11</span>Resolved questions</a></li>
       <li><a href="#sources"><span>12</span>Sources</a></li>
     </ol>
   </nav>
 
   <main>
     <header>
-      <p class="eyebrow">High-level design · draft for discussion · evidence checked 13 Sep 2026</p>
+      <p class="eyebrow">High-level design · v0.2 · evidence checked 13 Sep 2026</p>
       <h1>Hybrid Context Engine</h1>
       <p class="dek">A platform that turns an organisation’s documents, recordings and databases into permission-aware context that any LLM agent can use over MCP. It is designed around the hardest questions it has to answer: the ones that need a database and a document at the same time.</p>
       <div class="assume" role="list">
-        <div role="listitem"><b>Scale assumed</b>10⁶–10⁷ documents (≈10⁷–10⁸ pages), tens of databases, one organisation.</div>
-        <div role="listitem"><b>Hosting assumed</b>Your cloud VPC. Frontier LLM APIs are allowed under enterprise terms.</div>
-        <div role="listitem"><b>Still open</b>Whether document content may go to third-party embedding or parsing APIs. Each layer names an API default and a self-hosted equivalent.</div>
-        <div role="listitem"><b>Out of scope</b>Write actions. The engine is read-only by design (§6.2).</div>
+        <div role="listitem"><b>Extensible</b>Every source, parser, model, index, engine and policy sits behind an interface (§4.1). Adding one is an adapter, not a redesign.</div>
+        <div role="listitem"><b>Scale-ready</b>Every tier scales out to 10⁹+ chunks without redesign. Deployments start right-sized and grow by adding nodes.</div>
+        <div role="listitem"><b>Source-agnostic</b>No tier assumes a particular database, warehouse or document store. Each source gets its own specialised connector.</div>
+        <div role="listitem"><b>Out of scope</b>Write actions. The engine is read-only by design (§6.3).</div>
       </div>
     </header>
 
     <!-- 1 -->
     <section id="summary">
       <h2><span class="n">1</span>Decision summary</h2>
-      <p>Every row is argued in §5–6 with its evidence. “Switch when” is the trigger that should reopen the decision, not a list of equally good options.</p>
+      <p>Every row is argued in §4.1–§6 with its evidence. “Switch when” is the trigger that should reopen the decision, not a list of equally good options. Every pick below the first row is a default adapter behind an interface.</p>
       <div class="tw">
         <table class="wide">
           <thead>
             <tr><th>Layer</th><th>Default pick</th><th>Why, in one line</th><th>Switch when</th><th>Status</th></tr>
           </thead>
           <tbody>
+            <tr><td class="k">Core</td><td class="pick">Interface-first core (ports and adapters): 14 interfaces with declared capabilities and conformance suites</td><td>Adding or swapping a source, model or engine is an adapter plus a re-projection, never a redesign</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Agent interface</td><td class="pick">MCP server on the 2026-07-28 spec, per-client tool profiles (including the OpenAI <code>search</code>/<code>fetch</code> shape), REST mirror</td><td>Every major agent host speaks MCP; the stateless core runs behind a plain load balancer</td><td>Publish <code>ask</code> over A2A when other agents need to delegate whole tasks</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Ingestion</td><td class="pick">Temporal, one durable workflow per document version; Ray Data for bulk GPU backfills</td><td>Per-document retries, rate-limit windows and heartbeats; Ray streams 10⁷-page jobs</td><td>Dagster if your data team is already asset-centric</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Format conversion</td><td class="pick">Docling (MIT, LF AI &amp; Data) as the hub and intermediate representation</td><td>One document model across PDF, Office, HTML, email, images, audio and video</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Hard pages</td><td class="pick">PaddleOCR-VL-1.6 (Apache-2.0, ~1B) on vLLM, behind a router</td><td>96.3 on OmniDocBench v1.6, permissive licence, ≈1.6 pages/s per A100</td><td>Mistral OCR 4 (API or container) or Reducto for pages that fail validation</td><td><span class="chip quarter">Quarterly</span></td></tr>
             <tr><td class="k">Audio</td><td class="pick">Batch ASR with word timestamps and diarization. API: AssemblyAI Universal-3.5 Pro. Self-host: Granite Speech 4.1 + pyannote Community-1</td><td>Names, jargon and who-said-what matter more than latency</td><td>Qwen3-ASR (52 languages) or ElevenLabs Scribe v2 for multilingual estates</td><td><span class="chip quarter">Quarterly</span></td></tr>
             <tr><td class="k">Derived data</td><td class="pick">Context lake: raw objects in S3, everything derived in Iceberg v3 tables</td><td>Re-parse and re-embed without re-crawling; row lineage drives incremental indexing</td><td>Lance format if multimodal ML reuse dominates</td><td><span class="chip stable">Stable</span></td></tr>
-            <tr><td class="k">Hybrid index</td><td class="pick">OpenSearch 3.x: BM25 + BBQ-quantised dense vectors + ACL filters + facets</td><td>Mature lexical search, fast term filters for ACLs, aggregations, security in the Apache-2.0 build</td><td>Vespa past ~10⁹ chunks or for in-engine late interaction; turbopuffer if SaaS is acceptable and cost dominates; Postgres-only under ~10⁷ chunks</td><td><span class="chip stable">Stable</span></td></tr>
-            <tr><td class="k">Text embeddings</td><td class="pick">Bake-off. Prior: voyage-4-large for documents, voyage-4-lite for queries</td><td>One embedding space across the family: change the query model without re-indexing</td><td>Qwen3-Embedding-8B (Apache-2.0) if content must stay in the VPC; Gemini Embedding 2 on Google Cloud</td><td><span class="chip bake">Bake-off</span></td></tr>
+            <tr><td class="k">Hybrid index</td><td class="pick">OpenSearch 3.x: BM25 + BBQ-quantised dense vectors + ACL filters + facets</td><td>Mature lexical search, fast term filters for ACLs, aggregations, security in the Apache-2.0 build; scales out past 10⁹ vectors with disk-based search</td><td>Vespa for learned ranking over many features or in-engine late interaction (a capability trigger, not a size trigger); turbopuffer if SaaS is acceptable and cost dominates</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Text embeddings</td><td class="pick">Bake-off. Prior: voyage-4-large for documents, voyage-4-lite for queries</td><td>One embedding space across the family: change the query model without re-indexing</td><td>Qwen3-Embedding-8B (Apache-2.0) for content that policy keeps inside the VPC, as a separate embedding space fused at query time (§4.1); Gemini Embedding 2 on Google Cloud</td><td><span class="chip bake">Bake-off</span></td></tr>
             <tr><td class="k">Visual channel</td><td class="pick">One vector per page image: Qwen3-VL-Embedding-8B (Apache-2.0)</td><td>Visual retrievers beat text on ViDoRe V3 (59.8 vs 51.0 nDCG@10) at a fraction of multi-vector storage</td><td>Late-interaction models (Vespa, Qdrant) if they win your bake-off by a margin that matters</td><td><span class="chip bake">Bake-off</span></td></tr>
             <tr><td class="k">Reranker</td><td class="pick">Cohere Rerank 4 Pro or zerank-2, via API</td><td>Top two on Agentset’s Feb 2026 board; +13.2 nDCG@10 on ViDoRe V3’s text pipeline</td><td>Qwen3-Reranker (Apache-2.0) when self-hosting</td><td><span class="chip bake">Bake-off</span></td></tr>
-            <tr><td class="k">Entity layer</td><td class="pick">Postgres entity store, Splink linkage, LLM only for uncertain pairs</td><td>Entities join documents to database rows; full GraphRAG ties plain RAG at equal token budget</td><td>A graph database once multi-hop traversal queries recur</td><td><span class="chip stable">Stable</span></td></tr>
-            <tr><td class="k">Metrics &amp; SQL</td><td class="pick">Semantic layer first (Apache Ossie format, MetricFlow); text-to-SQL fallback with schema and value linking; execute at the source as the user</td><td>98–100% vs 84–90% on modelled data (dbt, Apr 2026); fails loudly instead of plausibly</td><td>Snowflake semantic views if Snowflake is the warehouse; Trino only for cross-database joins</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Entity layer</td><td class="pick">Entity registry in Postgres (canonical entities, aliases, source keys); mentions stored on chunks and in the lake; Splink linkage, LLM only for uncertain pairs</td><td>Entities join documents to database rows. The registry grows with entities, not with the corpus. Full GraphRAG ties plain RAG at equal token budget.</td><td>A graph database once multi-hop traversal queries recur</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Metrics &amp; SQL</td><td class="pick">Semantic layer first: metrics defined once in Apache Ossie format (MetricFlow) and compiled by each source’s connector into its own dialect; text-to-SQL fallback with schema and value linking; execute at the source as the user</td><td>98–100% vs 84–90% on modelled data (dbt, Apr 2026); fails loudly instead of plausibly</td><td>Import a platform’s native semantic models (Snowflake semantic views, for example) into Ossie rather than adopting them; Trino only for metrics or joins that span sources</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Lake SQL</td><td class="pick">Trino over the Iceberg lake for document and extraction tables; DuckDB as the local adapter</td><td>One scale-out engine serves both lake tables and cross-source joins; DuckDB is single-node</td><td>Your warehouse’s Iceberg support, if every lake query can run there</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Catalog</td><td class="pick">DataHub: schemas, lineage, query history, MCP tools</td><td>Feeds schema linking, the value index and golden queries</td><td>OpenMetadata for governance-led teams</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Permissions</td><td class="pick">ACL principals on every chunk, a late check on final candidates, a priority revocation lane; SpiceDB when inheritance spans systems</td><td>The engine enforces access; the LLM never decides it</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Policy &amp; compliance</td><td class="pick">Cedar policies behind a policy interface, checked before every step that moves data (§6.2)</td><td>Residency, provider routing, retention and legal hold become tested code; Cedar is built for automated analysis of policies</td><td>OPA/Rego if your organisation already runs it</td><td><span class="chip stable">Stable</span></td></tr>
             <tr><td class="k">Evaluation</td><td class="pick">Golden set per question class; OTel GenAI traces into Langfuse; CI gate on every model or parser swap</td><td>Public leaderboards are noisy: annotation errors in 52.8% of BIRD Mini-Dev and 66.1% of audited Spider 2.0-Snow tasks</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
           </tbody>
         </table>
@@ -440,16 +448,26 @@ html { scroll-behavior: smooth; }
     <!-- 3 -->
     <section id="principles">
       <h2><span class="n">3</span>Principles</h2>
-      <p>These eight rules generate most of the component choices below. Each is tied to evidence rather than taste.</p>
+      <p>These ten rules generate most of the component choices below. Each is tied to evidence rather than taste.</p>
       <div class="principles">
         <article>
-          <h4>Many interfaces, not one retriever</h4>
+          <h4>Interfaces first, adapters everywhere</h4>
+          <p>The core defines narrow interfaces with declared capabilities and never names a vendor. Every source, parser, model, index, engine and policy is an adapter that passes the same conformance suite, so extending the platform means adding an adapter, not changing the core.</p>
+          <p class="ev">Why: components churn every quarter (§5.2), and the lake keeps a swap down to one re-projection (§7). Details in §4.1.</p>
+        </article>
+        <article>
+          <h4>Scale-ready from day one</h4>
+          <p>Every tier scales out without redesign: stateless serving, partitioned indexes, idempotent queue-driven ingestion, an object-storage lake. Deployments start small and grow by adding nodes. The only single-node stores (entity registry, control plane) hold data that grows with entities and sources, not with the corpus.</p>
+          <p class="ev">Evidence: <a href="https://blog.modelcontextprotocol.io/posts/2026-07-28/">stateless MCP</a> (2026-07-28); OpenSearch <a href="https://opensearch.org/blog/reduce-cost-with-disk-based-vector-search/">disk-based vector search</a> and <a href="https://aws.amazon.com/blogs/big-data/build-billion-scale-vector-databases-in-under-an-hour-with-gpu-acceleration-on-amazon-opensearch-service/">billion-vector indexes built in under an hour</a>.</p>
+        </article>
+        <article>
+          <h4>Many ways into the corpus, not one retriever</h4>
           <p>Agents do better when they can search by meaning, match exactly, filter and count, read with navigation and run SQL. A single top-k endpoint pushes every question through the one channel it fits least.</p>
           <p class="ev">Evidence: <a href="https://arxiv.org/abs/2605.05242">direct corpus interaction</a> (grep-style access beat sparse, dense and reranked retrieval on BRIGHT and BrowseComp-Plus); <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a> (text and visual channels are complementary).</p>
         </article>
         <article>
           <h4>Compute, don’t generate</h4>
-          <p>Counting, summing, ranking and joining happen in SQL or DuckDB. The model plans, reads and explains.</p>
+          <p>Counting, summing, ranking and joining happen in a SQL engine. The model plans, reads and explains.</p>
           <p class="ev">Evidence: <a href="https://arxiv.org/html/2603.07316">FinSheet-Bench</a>; <a href="https://huggingface.co/papers/2603.20576">DAB</a> (pushing aggregation into SQL beat post-processing in Python).</p>
         </article>
         <article>
@@ -543,8 +561,8 @@ html { scroll-behavior: smooth; }
             <text class="t" x="461.5" y="274" text-anchor="middle">Entity store</text>
             <text class="s" x="461.5" y="292" text-anchor="middle">Postgres</text>
             <rect class="bx" x="529" y="250" width="111" height="58" rx="6"/>
-            <text class="t" x="584.5" y="274" text-anchor="middle">Doc tables</text>
-            <text class="s" x="584.5" y="292" text-anchor="middle">DuckDB · lake</text>
+            <text class="t" x="584.5" y="274" text-anchor="middle">Lake tables</text>
+            <text class="s" x="584.5" y="292" text-anchor="middle">Trino · Iceberg</text>
             <rect class="bx" x="680" y="250" width="280" height="58" rx="6"/>
             <text class="t" x="820" y="274" text-anchor="middle">Catalog + semantic layer</text>
             <text class="s" x="820" y="292" text-anchor="middle">DataHub · Ossie / MetricFlow</text>
@@ -618,18 +636,50 @@ html { scroll-behavior: smooth; }
 
             <!-- planes -->
             <rect class="bx2" x="16" y="712" width="944" height="44" rx="6"/>
-            <text class="t" x="32" y="731">Identity &amp; permissions</text>
-            <text class="s" x="32" y="748">IdP → identity map → principal graph · captured at connect · stored on every chunk · re-checked at query · passed through to SQL</text>
+            <text class="t" x="32" y="731">Identity, permissions &amp; policy</text>
+            <text class="s" x="32" y="748">principal graph: who sees what · Cedar policy: what flows where · checked at connect, model calls, index, query, SQL</text>
             <rect class="bx2" x="16" y="764" width="466" height="44" rx="6"/>
             <text class="t" x="32" y="783">Evaluation &amp; tracing</text>
             <text class="s" x="32" y="800">golden sets · OTel GenAI → Langfuse · CI gates</text>
             <rect class="bx2" x="494" y="764" width="466" height="44" rx="6"/>
             <text class="t" x="510" y="783">Model gateway</text>
-            <text class="s" x="510" y="800">LLMs · embedders · rerankers, all versioned</text>
+            <text class="s" x="510" y="800">LLMs · embedders · rerankers as adapters, routed by policy</text>
           </svg>
         </div>
         <figcaption><b>Figure 1.</b> Two paths, one lake. Solid arrows are the write path (up) and the read path (down). The two dashed paths are the exceptions that keep data where it lives. Rows are queried live in the database with the user’s identity. Sources that can’t be indexed are searched at query time and merged after reranking.</figcaption>
       </figure>
+
+      <h3 id="interfaces"><span class="n">4.1</span>Interfaces</h3>
+      <p>The core is a set of ports; every box in Figure 1 is an adapter plugged into one. Each interface is versioned. Each adapter declares its version and capabilities, and the core plans with those capabilities instead of the lowest common denominator; for example, the retriever skips the visual channel on an index without one. No adapter is enabled until it passes its interface’s conformance suite.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead><tr><th>Interface</th><th>Owns</th><th>Adapter declares</th><th>Default adapters</th></tr></thead>
+          <tbody>
+            <tr><td><code>SourceConnector</code></td><td>Change feed, fetch, ACLs, principals, identity map (§5.1)</td><td>Indexed or federated; delta support; ACL model</td><td>One per source: Microsoft Graph, Google Drive, Box, S3, Slack real-time search, …</td></tr>
+            <tr><td><code>StructuredSource</code></td><td>Schema, statistics, values, query log; read-only execution as the user</td><td>SQL dialect; identity passthrough; row-level security; cost estimates</td><td>One per engine: Postgres, MySQL, Snowflake, …, with <a href="https://pypi.org/project/sqlglot/">sqlglot</a> for dialects</td></tr>
+            <tr><td><code>Parser</code></td><td>Bytes → IR with provenance</td><td>Formats; OCR; tables; languages</td><td>Docling; PaddleOCR-VL; Mistral OCR 4</td></tr>
+            <tr><td><code>Transcriber</code></td><td>Audio → timed, diarised transcript</td><td>Languages; diarisation; vocabulary biasing</td><td>AssemblyAI; Granite Speech + pyannote</td></tr>
+            <tr><td><code>Embedder</code></td><td>Items → vectors</td><td>Modality; dimensions; max input; embedding-space ID; residency</td><td>Voyage 4; Qwen3(-VL)-Embedding; Gemini Embedding 2</td></tr>
+            <tr><td><code>Reranker</code></td><td>Reorders candidates</td><td>Max candidates; languages; residency</td><td>Cohere Rerank 4; zerank-2; Qwen3-Reranker</td></tr>
+            <tr><td><code>LLM</code></td><td>Plans, extracts, summarises, answers</td><td>Context size; tools; structured output; residency</td><td>Any provider, through the model gateway</td></tr>
+            <tr><td><code>IndexStore</code></td><td>Writes projections; hybrid, filtered retrieval</td><td>Lexical; dense; multi-vector; facets</td><td>OpenSearch; Vespa; turbopuffer</td></tr>
+            <tr><td><code>LakeStore</code></td><td>Versioned objects and tables; change feed</td><td>Time travel; row lineage</td><td>S3 + Iceberg v3</td></tr>
+            <tr><td><code>SqlEngine</code></td><td>SQL over lake tables and across sources</td><td>Dialect; federation</td><td>Trino; DuckDB (local)</td></tr>
+            <tr><td><code>SemanticLayer</code></td><td>Metric definitions → per-source SQL</td><td>Ossie import and export</td><td>MetricFlow</td></tr>
+            <tr><td><code>EntityResolver</code></td><td>Mentions → canonical entities</td><td>Batch or online</td><td>Splink + LLM adjudication</td></tr>
+            <tr><td><code>PermissionProvider</code></td><td>Who may see what (§6.1)</td><td>Inheritance; bulk check</td><td>Index ACL fields + source check; SpiceDB</td></tr>
+            <tr><td><code>PolicyEngine</code></td><td>What may flow where (§6.2)</td><td>Analysable policies</td><td>Cedar; OPA</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>What an interface can’t hide</h4>
+      <p>Interfaces make every choice in §1 reversible. Four things still leak through them, and the design handles each explicitly.</p>
+      <ul>
+        <li><strong>Data that has moved can’t be recalled.</strong> Swapping a provider doesn’t undo what was already sent to it. So the policy check runs before every call that moves data (§6.2), not as a filter afterwards.</li>
+        <li><strong>A vector space belongs to one model.</strong> Changing the embedder means re-embedding the corpus (≈ $2,000 a pass at list price, §7), and vectors from two models can’t share a field. If policy keeps some content on a self-hosted embedder, that content gets its own embedding space, and the retriever fuses the spaces with RRF just as it fuses channels. A reranker scoring a mixed candidate set must be allowed to see all of it, so the strictest label in the set chooses the reranker.</li>
+        <li><strong>Semantics differ by source.</strong> ACL models, SQL dialects and metric definitions don’t line up across systems. The interfaces carry normalised models (principals with inheritance, Ossie metrics, sqlglot dialects), and conformance suites prove each adapter maps faithfully. For connectors, that means ACL fidelity, deltas, deletions and identity mapping.</li>
+        <li><strong>Latency and rate limits leak.</strong> A chatty interface over a remote API collapses at scale, so every interface is batch-first and asynchronous: bulk embed, bulk rerank, bulk permission check.</li>
+      </ul>
     </section>
 
     <!-- 5 -->
@@ -652,7 +702,7 @@ html { scroll-behavior: smooth; }
         <dt>Revisit when</dt>
         <dd>A source offers only live search (federate it), or event volume outgrows per-document workflows (move that source to a Ray-only batch lane).</dd>
       </dl>
-      <h4>The contract</h4>
+      <h4>The contract (<code>SourceConnector</code>)</h4>
 <pre><span class="c">// every connector implements the same five calls</span>
 changes(cursor)   → [{ id, version, op: upsert|delete|acl }], next_cursor
 fetch(id)         → bytes + source metadata + deep link
@@ -662,7 +712,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
       <ul>
         <li><strong>Three connector kinds.</strong> <em>Indexed content</em> covers SharePoint and OneDrive through Graph delta queries, Google Drive through its changes feed, Box, Confluence, object stores, file shares and email. <em>Structured metadata</em> covers Postgres, MySQL, Snowflake and the rest: schemas, comments, statistics, distinct values of low-cardinality columns, query history and row-access policies. <em>Federated</em> covers sources searched live, such as Slack through its Real-time Search API.</li>
         <li><strong>Freshness.</strong> Change feeds and object events give minutes-level freshness. A weekly reconciliation crawl catches missed events and ACL drift. Deletions and ACL changes skip the queue on a priority lane with its own SLO (proposed: p99 under 5 minutes).</li>
-        <li><strong>“New kinds of databases keep appearing.”</strong> Supporting one means writing two adapters: a metadata extractor, and a read-only executor over ADBC, Arrow Flight SQL, JDBC or an existing Trino connector. The catalog, semantic layer and tools don’t change.</li>
+        <li><strong>One specialised connector per source.</strong> Document sources implement <code>SourceConnector</code>; databases also implement <code>StructuredSource</code> (§4.1). A new kind of database is one adapter: metadata extraction plus read-only execution as the user, over ADBC, Arrow Flight SQL, JDBC or an existing Trino connector, with sqlglot handling its dialect. The catalog, semantic layer and tools don’t change.</li>
         <li><strong>Reuse before writing.</strong> Enumeration and fetch code exists in <a href="https://airbyte.com/agentic-data/pre-built-connectors-for-ai-agents">Airbyte</a> (600+ connectors), <a href="https://onyx.app/connectors">Onyx</a> (50+ with permission sync) and <a href="https://github.com/airweave-ai/airweave">Airweave</a> (50+ integrations). Own and test ACL extraction for your top sources; that is where connectors quietly go wrong.</li>
       </ul>
 
@@ -685,7 +735,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
       <ul>
         <li><strong>Router.</strong> Route by MIME type plus a probe. For PDFs, check text-layer quality (coverage, garbage ratio) and layout signals (tables, multi-column, forms). Good text with a simple layout takes the fast path; everything else goes to the VLM. Images get a VLM parse and a caption.</li>
         <li><strong>IR.</strong> Sections contain blocks (paragraph, table, figure, list, formula, code). Each block carries provenance: page, bounding box and character offsets, or a time range for media. Page images are rendered and kept, both for the visual channel and for answering with the page itself. On <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a>, page-image context beat text context 64.7% to 62.3% when the right pages were given.</li>
-        <li><strong>Spreadsheets.</strong> Detect the table regions on each sheet (a sheet often holds several). Each table becomes a Parquet/Iceberg “document table” queryable by DuckDB. A text card (sheet name, headers, units, sample rows, statistics) makes it findable. Formulas are kept as metadata. The model finds the table; SQL does the arithmetic.</li>
+        <li><strong>Spreadsheets.</strong> Detect the table regions on each sheet (a sheet often holds several). Each table becomes an Iceberg “document table” that <code>query_table</code> can query with SQL. A text card (sheet name, headers, units, sample rows, statistics) makes it findable. Formulas are kept as metadata. The model finds the table; SQL does the arithmetic.</li>
         <li><strong>Chunking.</strong> Chunk by structure: paragraph groups of about 300–800 tokens, never crossing a section boundary, with each table as its own chunk and its header row repeated. Prefix every chunk with a context header: <code>title › section path › caption · date · source</code>. That “enriched title” variant is the cheap win in an <a href="https://arxiv.org/html/2608.16586v1">Aug 2026 study</a> covering 10K–10M documents. The same study found LLM-contextualised and semantic chunking rarely gave consistent gains, for 5–50× the processing time. Anthropic’s <a href="https://www.anthropic.com/engineering/contextual-retrieval">contextual retrieval</a> (−49% failed retrievals, −67% with reranking) is still worth a bake-off on low-context fragments such as slides, spreadsheet cards and email replies, but not as a default.</li>
         <li><strong>Enrichment.</strong> Tag document type, language, effective and expiry dates, and entity mentions (people, organisations, products, identifiers). A small model writes a short document card.</li>
         <li><strong>Extraction tables.</strong> For high-volume document types (contracts, invoices, purchase orders), define one schema per type. An LLM fills it with a citation (page and box) and a confidence for each field. Low-confidence fields go to a review queue. These tables are what make class-4 and class-6 questions exact.</li>
@@ -716,17 +766,17 @@ identity_map()    → source user id ↔ IdP identity</pre>
         <dt>Decision</dt>
         <dd class="decision">OpenSearch 3.x holds three indexes. The chunk index has BM25 with language analyzers, dense vectors with 1-bit BBQ quantisation and rescoring, ACL principal lists, metadata and facets. The other two are the visual page index and the document-card index.</dd>
         <dt>Why</dt>
-        <dd>Enterprise questions depend on exact tokens: part numbers, clause names, acronyms, people. That makes lexical search a primary channel, not a fallback, and Lucene’s analyzers, phrase and regex queries are the most mature available. ACL filtering is a terms filter over principal IDs, which Lucene engines have run at scale for over a decade. <code>browse</code> needs aggregations. <a href="https://www.instaclustr.com/blog/opensearch-version-3-6-release-smart-agents-and-fast-search/">OpenSearch 3.6</a> (10 Apr 2026) added Lucene BBQ at 32× compression (recall above 0.95 with oversampling on Cohere-10M). Document- and field-level security ship in the Apache-2.0 build, and managed offerings exist. Onyx, an open-source enterprise search product with the same connector-and-permissions problem, <a href="https://docs.onyx.app/changelog">moved its whole index from Vespa to OpenSearch</a> in v3–v4 (Mar–Apr 2026). It hasn’t said why, so treat that as a signal, not proof.</dd>
+        <dd>Enterprise questions depend on exact tokens: part numbers, clause names, acronyms, people. That makes lexical search a primary channel, not a fallback, and Lucene’s analyzers, phrase and regex queries are the most mature available. ACL filtering is a terms filter over principal IDs, which Lucene engines have run at scale for over a decade. <code>browse</code> needs aggregations. <a href="https://www.instaclustr.com/blog/opensearch-version-3-6-release-smart-agents-and-fast-search/">OpenSearch 3.6</a> (10 Apr 2026) added Lucene BBQ at 32× compression (recall above 0.95 with oversampling on Cohere-10M). Document- and field-level security ship in the Apache-2.0 build, and managed offerings exist. It is also scale-ready: <a href="https://opensearch.org/blog/reduce-cost-with-disk-based-vector-search/">disk-based mode</a> keeps 32×-compressed vectors in memory with full precision on disk, and GPU-accelerated builds create <a href="https://aws.amazon.com/blogs/big-data/build-billion-scale-vector-databases-in-under-an-hour-with-gpu-acceleration-on-amazon-opensearch-service/">billion-vector indexes in under an hour</a>, so size alone never forces an engine change. Onyx, an open-source enterprise search product with the same connector-and-permissions problem, <a href="https://docs.onyx.app/changelog">moved its whole index from Vespa to OpenSearch</a> in v3–v4 (Mar–Apr 2026). It hasn’t said why, so treat that as a signal, not proof.</dd>
         <dt>Rejected</dt>
         <dd><ul>
           <li><strong>Elasticsearch 9.x.</strong> Its hybrid tooling is as good or better (retrievers, <code>semantic_text</code>, and Jina models since Elastic <a href="https://finance.yahoo.com/news/elastic-completes-acquisition-jina-ai-130200685.html">acquired Jina AI</a> in Oct 2025), but document-level security sits in paid tiers. Pick it if you already license Elastic.</li>
           <li><strong>Vespa.</strong> The most capable ranking engine, with multi-phase tensor ranking and in-engine <a href="https://blog.vespa.ai/scaling-colpali-to-billions/">ColPali at billions of pages</a>. The capabilities where it leads are the ones this design puts elsewhere: final ranking goes to a cross-encoder, and visual retrieval uses single vectors.</li>
           <li><strong>turbopuffer.</strong> Built on object storage, cheap at scale, with BM25, vectors and filters; Cursor, Notion and Anthropic run on it. It has <a href="https://turbopuffer.com/docs/tradeoffs">no aggregations or multi-vector</a>, you build second-stage ranking yourself, and a SaaS vendor becomes a processor of the whole corpus.</li>
           <li><strong>Qdrant, Milvus.</strong> Strong vector engines, but their lexical analysis and facets are less mature than Lucene’s, and lexical is a primary channel here.</li>
-          <li><strong>Postgres only</strong> (pgvector or VectorChord, plus <a href="https://www.tigerdata.com/blog/pg-textsearch-bm25-full-text-search-postgres">pg_textsearch</a> or ParadeDB). The simplest stack under ~10⁷ chunks. But its BM25 extensions are one to two years old, and this platform needs BM25, quantised ANN, large ACL filters and facets together at 10⁸ rows. That combination is where Lucene engines have the longest production record.</li>
+          <li><strong>Postgres only</strong> (pgvector or VectorChord, plus <a href="https://www.tigerdata.com/blog/pg-textsearch-bm25-full-text-search-postgres">pg_textsearch</a> or ParadeDB). The simplest stack for a small corpus, but the brief is scale-ready from day one. Its BM25 extensions are one to two years old, and this platform needs BM25, quantised ANN, large ACL filters and facets together at 10⁸–10⁹ rows. That combination is where Lucene engines have the longest production record.</li>
         </ul></dd>
         <dt>Revisit when</dt>
-        <dd>You pass ~10⁹ chunks or need learned ranking over many features: go to Vespa (now with a <a href="https://blog.vespa.ai/vespa-newsletter-february-2026/">Kubernetes operator</a>). A late-interaction visual model beats single vectors by a margin you care about: go to Vespa or Qdrant multivector. The corpus turns out to be under ~10⁷ chunks: go Postgres-only. SaaS is acceptable and cost dominates: go to turbopuffer.</dd>
+        <dd>Only on a capability trigger, never on size. You need learned ranking over many features: go to Vespa (now with a <a href="https://blog.vespa.ai/vespa-newsletter-february-2026/">Kubernetes operator</a>). A late-interaction visual model beats single vectors by a margin you care about: go to Vespa or Qdrant multivector. SaaS becomes acceptable and cost dominates: go to turbopuffer. Each switch is a new <code>IndexStore</code> adapter plus a re-projection from the lake.</dd>
       </dl>
       <h4>Chunk record</h4>
 <pre>chunk {
@@ -742,7 +792,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
       <ul>
         <li><strong>Visual page index.</strong> One vector per rendered page, covering slides, charts, scans and diagrams. On <a href="https://arxiv.org/abs/2601.08620">ViDoRe V3</a> (≈26,000 enterprise page images, 10 domains), the best visual retriever scored 59.8 nDCG@10 against 51.0 for the best text retriever. Giving the generator the top five from each answered 54.7% of hard queries, more than either channel alone. The default model is <a href="https://arxiv.org/pdf/2601.04720">Qwen3-VL-Embedding-8B</a> (Apache-2.0), which its authors report as comparable to ColPali-style multi-vector models at far lower cost. Those models store about a thousand 128-dim vectors per page. On Google Cloud, <a href="https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-embedding-2-generally-available/">Gemini Embedding 2</a> (GA 22 Apr 2026) is the alternative; it puts text, image, audio, video and PDF in one space.</li>
         <li><strong>Document cards.</strong> One record per document (title, summary, owner, dates, type, entities). This is what <code>browse</code> returns, and a coarse first stage for long documents.</li>
-        <li><strong>Entity store (Postgres).</strong> Tables for entities (canonical ID, type, names, aliases), mentions (chunk, span), links to structured keys such as <code>snowflake:crm.customers.id=4812</code>, and typed relations where extracted. Linkage uses <a href="https://moj-analytical-services.github.io/splink/index.html">Splink</a> (probabilistic record linkage on DuckDB or Spark, 100M+ records), with an LLM deciding only the uncertain pairs. LLM-only matching costs <a href="https://tilores.io/content/can-llms-be-used-for-entity-resolution/">100–1,000× more</a> at production volume (vendor analysis). This is the bridge that makes class-6 questions joinable.</li>
+        <li><strong>Entity store.</strong> A Postgres registry holds entities (canonical ID, type, names, aliases), links to source keys such as <code>&lt;source&gt;:customers.id=4812</code> in whichever database holds them, and typed relations where extracted. The registry grows with the number of entities, not with the corpus. Mentions, which do grow with the corpus, live on the chunks (<code>entity_ids</code>) and in the lake. Linkage uses <a href="https://moj-analytical-services.github.io/splink/index.html">Splink</a> (probabilistic record linkage on DuckDB or Spark, 100M+ records), with an LLM deciding only the uncertain pairs. LLM-only matching costs <a href="https://tilores.io/content/can-llms-be-used-for-entity-resolution/">100–1,000× more</a> at production volume (vendor analysis). This is the bridge that makes class-6 questions joinable.</li>
         <li><strong>Why not GraphRAG now.</strong> In a <a href="https://arxiv.org/html/2502.11371v3">systematic comparison</a>, plain RAG beat Microsoft’s community GraphRAG on single-hop questions (64.78 vs 63.01 F1). On MultiHop-RAG the two tied once RAG got the same token budget (69.33 vs 69.01); GraphRAG had been using 9,770 tokens per query against 3,631. Graphs earn their cost on relationship-heavy and global questions. So build the entity layer now, which is cheap and needed for hybrid anyway. Use query-time community summarisation (LazyGraphRAG-style, about 0.1% of GraphRAG’s indexing cost) for class-7 questions. Add a graph database only when traversal queries recur. Note that Kùzu was <a href="https://thedataquarry.com/blog/from-kuzu-to-ladybug/">archived in Oct 2025</a> and continues as the LadybugDB fork.</li>
         <li><strong>Catalog and semantic layer.</strong> <a href="https://docs.datahub.com/docs/features/feature-guides/mcp">DataHub</a> ingests schemas, descriptions, lineage and query history, and already exposes search, lineage and schema tools over MCP. Three things go on top:
           <ul>
@@ -750,7 +800,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
             <li>a value index of distinct values in categorical columns, so “Acme” resolves to <code>'ACME Corp Inc.'</code>;</li>
             <li>golden queries: verified SQL for recurring questions, mined from query logs and reviewed.</li>
           </ul>
-          Metrics are defined once in <a href="https://ossie.apache.org/updates/ossie-enters-apache-incubator/">Apache Ossie</a> format, with MetricFlow (Apache-2.0) as the reference implementation. Ossie was formerly OSI: v1 shipped in Jan 2026 and it entered the Apache Incubator in Jul 2026. Where Snowflake is the warehouse, Snowflake semantic views are the alternative.</li>
+          Metrics are defined once in <a href="https://ossie.apache.org/updates/ossie-enters-apache-incubator/">Apache Ossie</a> format, with MetricFlow (Apache-2.0) as the reference implementation. Ossie was formerly OSI: v1 shipped in Jan 2026 and it entered the Apache Incubator in Jul 2026. Where a platform has its own semantic models (Snowflake semantic views, for example), its connector imports them into Ossie, so every metric still has one home.</li>
       </ul>
 
       <!-- 5.5 -->
@@ -865,7 +915,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
       <h4>Structured path</h4>
       <ul>
         <li><strong><code>describe_data</code></strong> returns only the relevant slice of the schema: candidate tables and columns with descriptions, join paths, matching values from the value index, related metrics and golden queries. On the Data Agent Benchmark, top agents spent about 20% of tool calls exploring, and both less and more hurt. Exploration should be a tool, not a hope.</li>
-        <li><strong><code>query_metrics</code></strong> compiles through the semantic layer, so covered questions are deterministic. dbt’s <a href="https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026">April 2026 re-run</a> on modelled data found:
+        <li><strong><code>query_metrics</code></strong> compiles through the semantic layer into the source’s own dialect, so covered questions are deterministic. dbt’s <a href="https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026">April 2026 re-run</a> on modelled data found:
           <ul>
             <li>Claude Sonnet 4.6: 90.0% with text-to-SQL, 98.2% through the semantic layer;</li>
             <li>GPT-5.3 Codex: 84.1% with text-to-SQL, 100% through the semantic layer.</li>
@@ -873,7 +923,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
           The semantic layer fails loudly when a question isn’t covered; text-to-SQL returns a plausible wrong number.</li>
         <li><strong><code>run_sql</code></strong> is the fallback, and every step is a guard:
           <ul>
-            <li>parse and validate (read-only statements only);</li>
+            <li>parse and validate with sqlglot in the source’s dialect (read-only statements only);</li>
             <li>check cost with <code>EXPLAIN</code>, and cap rows and time;</li>
             <li>execute at the source with the user’s identity: OAuth to Snowflake, database roles and row-level security in Postgres;</li>
             <li>where identity passthrough is impossible, use a service role with an explicit policy check and the human named in the audit record.</li>
@@ -985,7 +1035,7 @@ identity_map()    → source user id ↔ IdP identity</pre>
             <tr><td><code>describe_data</code></td><td class="num">5, 6</td><td>catalog, value index, golden queries</td><td>tables, columns, joins, values, metrics</td></tr>
             <tr><td><code>query_metrics</code></td><td class="num">5</td><td>semantic layer → source database</td><td>table, compiled SQL, as-of time</td></tr>
             <tr><td><code>run_sql</code></td><td>5 (fallback)</td><td>source database with identity passthrough</td><td>capped rows, SQL, as-of time</td></tr>
-            <tr><td><code>query_table</code></td><td class="num">4, 6</td><td>DuckDB over document and extraction tables</td><td>rows with page citations</td></tr>
+            <tr><td><code>query_table</code></td><td class="num">4, 6</td><td>Trino over document and extraction tables in the lake</td><td>rows with page citations</td></tr>
             <tr><td><code>ask</code></td><td class="num">6, 7</td><td>planner over all of the above</td><td>answer with citations (Tasks for long runs)</td></tr>
           </tbody>
         </table>
@@ -1021,25 +1071,45 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
         <li><strong>Databases.</strong> Prefer identity passthrough. Where access runs through a service role, the audit record names the human.</li>
       </ul>
 
-      <h3 id="security"><span class="n">6.2</span>Security</h3>
+      <h3 id="policy"><span class="n">6.2</span>Policy and compliance</h3>
+      <p>Permissions decide who may see a document. Policy decides where content may flow: which regions store it, which model providers may process it, which clients may receive it, and how long it is kept. Both sit behind interfaces, so compliance rules are versioned, tested code rather than conventions.</p>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Enforcement point</th><th>What the policy decides</th><th>Example rule</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Connect</td><td>Whether a source or document may be ingested, and which region stores it</td><td>HR documents from EU sources stay in EU storage.</td></tr>
+            <tr><td class="k">Model call</td><td>Whether content may go to a given parser, transcriber, embedder, reranker or LLM</td><td>Anything labelled Confidential uses self-hosted adapters only.</td></tr>
+            <tr><td class="k">Index</td><td>Which partition and embedding space hold it</td><td>Restricted content goes to the VPC-embedded space.</td></tr>
+            <tr><td class="k">Query and MCP boundary</td><td>Whether a client agent may receive the content, and what gets redacted</td><td>Highly confidential content reaches approved clients only; personal data is masked for the rest.</td></tr>
+            <tr><td class="k">SQL</td><td>Whether an identity may run a query on a source</td><td>Payroll tables are open to finance roles only, on top of the source’s own row-level security.</td></tr>
+            <tr><td class="k">Retention</td><td>How long derived data is kept, and whether a legal hold applies</td><td>Derived data is deleted within 24 hours of the source deletion unless it is on hold.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Default engine: <a href="https://github.com/cedar-policy/cedar">Cedar</a></strong> (Apache-2.0). Its principal, action, resource and context model fits these decisions. It is built for automated reasoning: its symbolic compiler can prove a property such as “no Confidential resource reaches an external provider”, or return a counterexample. <a href="https://www.cncf.io/projects/open-policy-agent-opa/">OPA</a> (a CNCF graduated project) is the alternative if your organisation already runs it.</li>
+        <li><strong>Decided before data moves.</strong> Each enforcement point asks for a decision before its call runs, never filtering afterwards (§4.1).</li>
+        <li><strong>Policies live in git with unit tests.</strong> Every decision is logged with the policy version, so an audit can replay why content moved.</li>
+      </ul>
+
+      <h3 id="security"><span class="n">6.3</span>Security</h3>
       <p>The engine combines two legs of the “lethal trifecta”: private data, and untrusted content (any document can carry a prompt injection). The third leg, an exfiltration channel, lives in whatever other tools the client agent holds. The engine can’t remove that leg, so it makes itself a poor place to start an attack.</p>
       <ul>
         <li><strong>Read-only by design.</strong> No write tools, and no outbound network from the engine or its sandbox.</li>
         <li><strong>Provenance on every result:</strong> source, author and sensitivity label. The planner treats retrieved text as data (CaMeL-style separation of control and data flow).</li>
         <li><strong>Injection scanning at ingestion.</strong> Chunks with instruction-like content are flagged, labelled and down-ranked, not silently deleted.</li>
-        <li><strong>Sensitivity labels travel with chunks.</strong> Policy can withhold highly confidential content from specific clients or agents.</li>
         <li><strong>Volume anomaly detection</strong> on fetch patterns per identity, to catch bulk extraction.</li>
         <li><strong>Supply chain.</strong> Pin and hash-verify dependencies and images, and keep publishing credentials away from CI jobs that run third-party tools. The case study is the <a href="https://blog.pypi.org/posts/2026-04-02-incident-report-litellm-telnyx-supply-chain-attack/">LiteLLM compromise</a> of 24 Mar 2026: malicious 1.82.7 and 1.82.8 releases were live on PyPI for about 40 minutes, traced to a compromised Trivy step in CI.</li>
       </ul>
 
-      <h3 id="models"><span class="n">6.3</span>Models and gateway</h3>
+      <h3 id="models"><span class="n">6.4</span>Models and gateway</h3>
       <ul>
-        <li>All model calls (LLMs, embedders, rerankers) go through one gateway for routing, keys, budgets and tracing. Either self-host a pinned, hash-verified build or use your cloud’s native gateway.</li>
+        <li>All model calls (LLMs, embedders, rerankers) go through one gateway for policy-based routing (§6.2), keys, budgets and tracing. Either self-host a pinned, hash-verified build or use your cloud’s native gateway.</li>
         <li>A small, fast model handles query analysis, enrichment and document cards. A frontier model is used only for <code>ask</code> planning and synthesis. The engine stays model-agnostic, and internal calls are pinned to versions.</li>
-        <li>Embedders and rerankers are versioned services. Changing a version triggers the evaluation gate (§6.4) and a blue/green projection (§5.3).</li>
+        <li>Embedders and rerankers are versioned services. Changing a version triggers the evaluation gate (§6.5) and a blue/green projection (§5.3).</li>
       </ul>
 
-      <h3 id="eval"><span class="n">6.4</span>Evaluation and observability</h3>
+      <h3 id="eval"><span class="n">6.5</span>Evaluation and observability</h3>
       <ul>
         <li><strong>Golden set before features.</strong> Collect at least 50 real questions per class (§2), each with gold evidence: document and page, or verified SQL and its result. Real questions come from pilot users; synthetic ones must be human-verified. The <a href="https://www.vldb.org/cidrdb/papers/2026/p5-jin.pdf">CIDR 2026 audit</a> found annotation errors in 52.8% of BIRD Mini-Dev and 66.1% of audited Spider 2.0-Snow examples, enough to move rankings by up to three places.</li>
         <li><strong>Metrics per stage:</strong>
@@ -1052,6 +1122,7 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
             <li>ACL red-team pass rate and revocation lag.</li>
           </ul></li>
         <li><strong>CI gate</strong> on every parser, embedder, reranker, prompt or model change.</li>
+        <li><strong>Conformance suites</strong> for each interface (§4.1) run in CI. An adapter can’t be enabled until it passes.</li>
         <li><strong>Tracing.</strong> Emit OpenTelemetry GenAI spans for agents, model calls and MCP. The conventions are still in Development status and moved to <a href="https://github.com/open-telemetry/semantic-conventions-genai">their own repository</a> on 12 Jun 2026, so pin the version. Send traces to Langfuse, self-hosted; it is open source and was <a href="https://clickhouse.com/blog/clickhouse-acquires-langfuse-open-source-llm-observability">acquired by ClickHouse</a> in Jan 2026.</li>
         <li><strong>Online signals:</strong> user feedback, citation clicks, the rate of “insufficient evidence” answers, and latency and cost per tool.</li>
       </ul>
@@ -1060,7 +1131,7 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
     <!-- 7 -->
     <section id="sizing">
       <h2><span class="n">7</span>Sizing math</h2>
-      <p>This works through 10⁷ pages (≈2×10⁷ chunks), using only figures verified above, so you can rescale it to your numbers.</p>
+      <p>This works through 10⁷ pages (≈2×10⁷ chunks), then the 10⁹-chunk scale-ready target, using only figures verified above, so you can rescale it to your numbers.</p>
       <div class="tw">
         <table class="mid">
           <thead><tr><th>Item</th><th>Calculation</th><th class="num">Result</th></tr></thead>
@@ -1071,10 +1142,11 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
             <tr><td class="k">Vector memory, fp32</td><td>2×10⁷ × 1,024 dims × 4 bytes</td><td class="num">81.9 GB</td></tr>
             <tr><td class="k">Vector memory, 1-bit BBQ</td><td>2×10⁷ × 128 bytes, plus full precision on disk for rescoring</td><td class="num">≈ 2.6 GB</td></tr>
             <tr><td class="k">Same at 2×10⁸ chunks</td><td>×10</td><td class="num">819 GB vs ≈ 26 GB</td></tr>
+            <tr><td class="k">At 10⁹ chunks, the scale-ready target</td><td>10⁹ × 4,096 bytes fp32 vs 10⁹ × 128 bytes 1-bit</td><td class="num">4.1 TB vs ≈ 128 GB</td></tr>
           </tbody>
         </table>
       </div>
-      <p><strong>What the numbers say.</strong> Re-embedding the corpus is cheap. Re-parsing it is not, and re-crawling it may be impossible. That ordering is why the lake stores parse output, why the router matters more than the parser, and why the index choice hinges on quantisation rather than raw ANN speed.</p>
+      <p><strong>What the numbers say.</strong> Re-embedding the corpus is cheap. Re-parsing it is not, and re-crawling it may be impossible. That ordering is why the lake stores parse output, why the router matters more than the parser, and why the index choice hinges on quantisation rather than raw ANN speed. It is also the price list for the interface-first design: swapping an embedder costs one re-embedding pass, swapping a parser costs re-parsing only the pages it handles, and neither touches the sources.</p>
       <p class="note">The A100 figure was measured for the original PaddleOCR-VL on vLLM 0.10.2; version 1.6 keeps the same ~1B architecture line, but re-measure on your hardware. The embedding figure uses one list price to show scale; others will differ.</p>
     </section>
 
@@ -1089,7 +1161,8 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
         <li><strong>Federating every source over MCP.</strong> It is slow and can’t be ranked across sources. Use it only where it’s required (§5.1).</li>
         <li><strong>LLM-contextualised chunking everywhere.</strong> The gains were rarely consistent at scale, for 5–50× the processing time (§5.2).</li>
         <li><strong>Multi-vector ColPali embeddings for every page.</strong> About a thousand vectors per page. Single-vector visual embeddings plus a text reranker capture most of the gain (§5.4).</li>
-        <li><strong>Picking components from leaderboards.</strong> The legal-set MTEB reversal, OmniDocBench’s document mix and the text-to-SQL annotation audit all point the same way (§3, §6.4).</li>
+        <li><strong>Picking components from leaderboards.</strong> The legal-set MTEB reversal, OmniDocBench’s document mix and the text-to-SQL annotation audit all point the same way (§3, §6.5).</li>
+        <li><strong>Lowest-common-denominator interfaces.</strong> If the core used only what every adapter supports, the platform would be as weak as its weakest adapter. Adapters declare capabilities, and the core uses them (§4.1).</li>
       </ul>
     </section>
 
@@ -1102,7 +1175,7 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
           <thead><tr><th>Stage</th><th>Build</th><th>Exit gate</th></tr></thead>
           <tbody>
             <tr><td class="k">0 · Measure</td><td>Pick 2–3 document sources and one database domain. Collect 300+ real questions across the eight classes, with gold evidence. Run a naive baseline (single-vector RAG plus raw text-to-SQL).</td><td>Golden set frozen; baseline scores recorded; ACL red-team suite written</td></tr>
-            <tr><td class="k">1 · Documents</td><td>Connectors with ACL capture, Temporal pipeline, Docling with router and PaddleOCR-VL, the lake, OpenSearch hybrid plus reranker, early and late ACL checks, MCP <code>search</code>/<code>fetch</code>/<code>exact_search</code>/<code>browse</code> with the compat profile, tracing</td><td>Classes 1–3 beat baseline by your chosen margin; zero leaks in the red-team suite; revocation p99 within SLO</td></tr>
+            <tr><td class="k">1 · Documents</td><td>The interfaces (§4.1) and their conformance suites first. Then the first adapters: connectors with ACL capture, Temporal pipeline, Docling with router and PaddleOCR-VL, the lake, OpenSearch hybrid plus reranker, early and late ACL checks, the policy engine, MCP <code>search</code>/<code>fetch</code>/<code>exact_search</code>/<code>browse</code> with the compat profile, tracing. Deploy on the scale-out topology at minimum size.</td><td>Every adapter passes its conformance suite; classes 1–3 beat baseline by your chosen margin; zero leaks in the red-team suite; revocation p99 within SLO</td></tr>
             <tr><td class="k">2 · Databases</td><td>DataHub ingest, value index, golden queries, semantic models for the top ~20 metrics, <code>describe_data</code>/<code>query_metrics</code>/<code>run_sql</code> with identity passthrough</td><td>≥ 95% on questions the semantic layer covers; text-to-SQL fallback measured and labelled</td></tr>
             <tr><td class="k">3 · The bridge</td><td>Entity store with Splink linkage, extraction tables for the two highest-volume document types, <code>ask</code> with gated hybrid plans and sufficiency checks</td><td>Class-6 accuracy target met; correct abstentions when evidence is missing</td></tr>
             <tr><td class="k">4 · Breadth</td><td>Audio, visual channel, federated sources, more connectors, cost tuning, A2A if needed</td><td>Per-source recall and cost within budget</td></tr>
@@ -1130,15 +1203,22 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
     </section>
 
     <!-- 11 -->
-    <section id="open">
-      <h2><span class="n">11</span>Open questions that change the design</h2>
-      <ol>
-        <li><strong>Can document content go to third-party model APIs</strong> for embedding, parsing and reranking? If yes, the API defaults above stand. If no, swap in Qwen3-Embedding, Qwen3-VL-Embedding, Qwen3-Reranker, PaddleOCR-VL and Granite Speech, which means one more GPU pool to operate.</li>
-        <li><strong>What is the real scale?</strong> Documents, pages, audio hours, databases, tables and concurrent users. Under ~10⁷ chunks, Postgres-only is simpler; past ~10⁹, look at Vespa.</li>
-        <li><strong>Where do documents live?</strong> Microsoft 365, Google Workspace, file shares, something else. This sets connector order and the shape of the ACL model.</li>
-        <li><strong>Is there a semantic layer or dbt project today, and is Snowflake the main warehouse?</strong> This decides between MetricFlow/Ossie and Snowflake semantic views.</li>
-        <li><strong>What compliance applies?</strong> GDPR, HIPAA, residency, deletion SLAs, retention, legal hold. These set the revocation SLO, the regions, and whether audio may be stored at all.</li>
-      </ol>
+    <section id="resolved">
+      <h2><span class="n">11</span>Resolved questions</h2>
+      <p>The owner settled the five questions v0.1 left open on 13 Sep 2026. The last column is what each decision adds to the design.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead><tr><th>#</th><th>Question</th><th>Decision</th><th>What it adds to the design</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td class="k">Third-party model APIs?</td><td>Providers are adapters behind interfaces; nothing in the core depends on the answer.</td><td>A policy chooses the provider per source and sensitivity label before any data moves (§6.2). Embedding spaces are first-class: one per corpus by default, fused at query time when policy splits them (§4.1).</td></tr>
+            <tr><td class="num">2</td><td class="k">Scale?</td><td>Scale-ready from day one; nothing gets reworked because of size.</td><td>Engines change only on capability triggers (§5.4). Entity mentions live on chunks, lake SQL runs on Trino, and the sizing is worked through to 10⁹ chunks (§7).</td></tr>
+            <tr><td class="num">3</td><td class="k">Where do documents live?</td><td>Source-agnostic: one specialised connector per source.</td><td>Every connector implements one interface and passes one conformance suite: ACL fidelity, deltas, deletions and identity mapping (§4.1, §5.1).</td></tr>
+            <tr><td class="num">4</td><td class="k">Semantic layer and warehouse?</td><td>No assumptions about any particular database or warehouse; each gets a specialised connector.</td><td>Metrics are defined once in Ossie and compiled by each source’s connector into its dialect. A platform’s native semantic models are imported into Ossie, not adopted (§5.4, §5.5).</td></tr>
+            <tr><td class="num">5</td><td class="k">Compliance?</td><td>Handled behind an interface.</td><td>A policy engine (Cedar by default) runs at six enforcement points, with policies versioned and tested in git (§6.2).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">What remains open is not a design question: the components marked Bake-off still need your golden set (§6.5).</p>
     </section>
 
     <!-- 12 -->
@@ -1196,6 +1276,8 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
         <li><a href="https://milvus.io/blog/announcing-milvus-3-lake-native-vector-search-and-a-more-powerful-retrieval-engine.md">Milvus 3.0</a></li>
         <li><a href="https://www.tigerdata.com/blog/pg-textsearch-bm25-full-text-search-postgres">pg_textsearch 1.0</a></li>
         <li><a href="https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-s3-vectors-generally-available/">Amazon S3 Vectors GA</a></li>
+        <li><a href="https://opensearch.org/blog/reduce-cost-with-disk-based-vector-search/">OpenSearch disk-based vector search</a></li>
+        <li><a href="https://aws.amazon.com/blogs/big-data/build-billion-scale-vector-databases-in-under-an-hour-with-gpu-acceleration-on-amazon-opensearch-service/">Billion-scale GPU-built indexes on OpenSearch (AWS)</a></li>
         <li><a href="https://atlan.com/know/snowflake/apache-iceberg-v3/">Apache Iceberg v3 on Snowflake</a></li>
       </ul>
 
@@ -1210,6 +1292,7 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
         <li><a href="https://docs.datahub.com/docs/features/feature-guides/mcp">DataHub MCP server</a></li>
         <li><a href="https://lotus-ai.readthedocs.io/en/latest/">LOTUS semantic operators</a></li>
         <li><a href="https://www.helpnetsecurity.com/2026/06/09/paras-malhotra-starburst-federated-query-security/">Starburst: agents as service accounts</a></li>
+        <li><a href="https://pypi.org/project/sqlglot/">sqlglot (30+ SQL dialects)</a></li>
       </ul>
 
       <h3>Graphs and entities</h3>
@@ -1221,9 +1304,10 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
         <li><a href="https://tilores.io/content/can-llms-be-used-for-entity-resolution/">Can LLMs do entity resolution? (Tilores)</a></li>
       </ul>
 
-      <h3>Permissions and security</h3>
+      <h3>Permissions, policy and security</h3>
       <ul>
         <li><a href="https://authzed.com/docs/spicedb/ops/secure-rag-pipelines">SpiceDB: securing RAG pipelines</a></li>
+        <li><a href="https://github.com/cedar-policy/cedar">Cedar policy language</a> · <a href="https://www.cncf.io/projects/open-policy-agent-opa/">OPA (CNCF)</a></li>
         <li><a href="https://authzed.com/blog/why-large-organizations-need-materialize">AuthZed Materialize</a></li>
         <li><a href="https://www.computerworld.com/article/4005509/salesforce-changes-slack-api-terms-to-block-bulk-data-access-for-llms.html">Slack API terms restrict bulk access</a></li>
         <li><a href="https://arxiv.org/pdf/2503.18813">CaMeL: defeating prompt injections by design</a></li>
@@ -1253,7 +1337,7 @@ fetch(id: string)     → { id, title, text, url, metadata }</pre>
     </section>
 
     <footer>
-      Draft v0.1 for discussion, prepared from web research on 13 Sep 2026. Components marked Quarterly or Bake-off should be re-verified on your own data before procurement. SLO figures are proposals, not measurements.
+      v0.2, 13 Sep 2026: open questions resolved with an interface-first, scale-ready, source-agnostic design and a policy engine. Prepared from web research on 13 Sep 2026. Components marked Quarterly or Bake-off should be re-verified on your own data before procurement. SLO figures are proposals, not measurements.
     </footer>
   </main>
 </div>
