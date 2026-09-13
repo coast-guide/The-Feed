@@ -17,7 +17,8 @@ Then check `git status` and `git log --oneline -10`, and read the latest log ent
 | --- | --- | --- |
 | `docs/STATE.md` | The handoff: phase, current focus, next steps, open questions | Overwrite it; keep it under 50 lines |
 | `docs/log/` | What happened in each session | Append-only, one file per session |
-| `docs/learn/` | Distilled knowledge, one concept per file | Edit in place; the only home for that concept |
+| `docs/topics/` | One map per topic: its goal and an ordered list of concepts with their status | Update status at every checkpoint |
+| `docs/learn/` | Distilled knowledge, one concept per file, shared across topics | Edit in place; the only home for that concept |
 | `docs/decisions/` | Decisions not already recorded in a design doc (the HLD keeps its own) | Never edit an accepted one; supersede it |
 | `labs/` | Runnable experiments, one folder each | Commands must reproduce the observations |
 | `docs/*.html` | Selected long-form documents | See [HTML documents](#html-documents) |
@@ -53,7 +54,9 @@ A checkpoint moves the current state out of the conversation and into the repo. 
 
 ## Learning loop
 
-For each topic: pose a question, run a lab that makes the mechanism visible, record what you observe, distil it into a `docs/learn/` note, record any decision, and checkpoint.
+1. Start each topic with a map in `docs/topics/`, using the format in that folder's README.
+2. Work through the map in order. For each concept: pose a question, run a lab that makes it visible, record what you observe, distil it into a `docs/learn/` note, and record any decision.
+3. Update the concept's status in the map, then checkpoint.
 
 ## HTML documents
 

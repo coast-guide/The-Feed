@@ -1,6 +1,6 @@
 # The Feed
 
-A lab for learning how agentic software factories work underneath, by running them live and inspecting what they do. The aim is working knowledge for production: the few mechanisms that explain most behaviour, and what, why and how each one works and breaks. That knowledge is groundwork for later building the Hybrid Context Engine with those agents.
+A lab for learning any subject to production-grade working depth, running things live and inspecting them wherever possible. For each topic the aim is the few ideas that explain most of it: what each one is, why it matters, how it works, and what breaks. A topic is finished when that understanding is solid enough to brief autonomous agents to build the thing elsewhere. The first topic is context engineering, through the components of the Hybrid Context Engine HLD.
 
 ## Start here
 

@@ -13,6 +13,7 @@ Design the Hybrid Context Engine using current tools and evidence, then set the 
 - Set the repo up as the agents' memory: [ADR 0001](../decisions/0001-repo-as-agent-memory.md). The mechanisms behind it are in [session memory and compaction](../learn/session-memory-and-compaction.md).
 - The owner resolved the HLD's five open questions: interface-first, scale-ready, source-agnostic, with compliance behind an interface. The result is HLD v0.2: decisions in [§11](../hybrid-context-engine.html#resolved), new [§4.1 Interfaces](../hybrid-context-engine.html#interfaces) and [§6.2 Policy and compliance](../hybrid-context-engine.html#policy).
 - Added the owner's `/rigor` standard ("How to think") and the interface-first rule to [AGENTS.md](../../AGENTS.md).
+- Reframed the repo after the owner's correction: it is for learning any topic. Added topic maps ([docs/topics/](../topics/README.md)) and the first one, [context engineering](../topics/context-engineering.md), with a draft order.
 
 ## Researched, not acted on
 
@@ -30,3 +31,4 @@ GitHub Pages for selected HTML documents, deferred by the user. Findings as of 2
 
 - Web search gave Pages action versions two majors out of date (v3/v4). The GitHub releases API showed the real ones, which is why AGENTS.md now requires primary sources.
 - Several third-party guides say Claude Code falls back to reading `AGENTS.md`. The official docs say it doesn't.
+- I misread the owner's software-factory remark as the repo's subject and wrote it into the always-loaded README and STATE. It was only context for how finished topics get built. Both files are corrected.
