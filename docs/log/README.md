@@ -2,7 +2,7 @@
 
 One file per session, named `YYYY-MM-DD-<slug>.md`. The log is append-only: never rewrite an old entry; correct it in a newer one.
 
-An entry records what happened and points to where the results live, without restating them. Knowledge goes to `../learn/`, decisions to `../decisions/`, and next steps to `../STATE.md`.
+An entry records what happened and links to where the results live, without restating them.
 
 ~~~markdown
 # YYYY-MM-DD · <title>

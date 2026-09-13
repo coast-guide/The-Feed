@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# The single interface to this lab's stack. Run `./lab help`.
+# When copying the template, adapt `run` and `inspect` to the lab.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+# One Compose project per lab folder, so labs never collide.
+PROJECT="lab-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_\n-' '-')"
+
+compose() {
+  if ! docker info >/dev/null 2>&1; then
+    echo "Docker isn't reachable. Start the Docker daemon (or Docker Desktop) and try again." >&2
+    exit 1
+  fi
+  docker compose --project-name "$PROJECT" --file compose.yaml "$@"
+}
+
+usage() {
+  cat <<'EOF'
+Usage: ./lab <command> [args]
+
+  up                Build and start the stack; returns once it is running
+  run               Run the experiment
+  inspect           Show what this lab makes visible
+  status            List the stack's containers
+  logs [svc] [-f]   Show recent logs; add -f to follow
+  shell [svc]       Open an interactive shell (default service: app)
+  down              Stop the stack and keep its data
+  reset             Stop the stack and delete its data
+  help              Show this help
+EOF
+}
+
+cmd="${1:-help}"
+if [ $# -gt 0 ]; then shift; fi
+
+case "$cmd" in
+  help | -h | --help) usage ;;
+  up)      compose up --build --wait "$@" ;;
+  run)     # Replace with this lab's experiment. Keep it non-interactive.
+           compose exec -T app sh -c 'echo "Template lab: replace ./lab run with the experiment."' ;;
+  inspect) # Replace with what this lab makes visible.
+           compose exec -T app cat /etc/alpine-release ;;
+  status)  compose ps ;;
+  logs)    compose logs --tail=200 "$@" ;;
+  shell)   compose exec "${1:-app}" sh ;;
+  down)    compose down --remove-orphans ;;
+  reset)   compose down --volumes --remove-orphans ;;
+  *)       echo "Unknown command: $cmd" >&2; usage >&2; exit 2 ;;
+esac

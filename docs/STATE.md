@@ -18,7 +18,7 @@ The repo is set up as the agents' memory ([ADR 0001](decisions/0001-repo-as-agen
 
 ## Open questions
 
-- None blocking. When building starts, the HLD's Bake-off components need a golden set ([§6.5](hybrid-context-engine.html#eval)).
+- None blocking.
 
 ## Latest log
 

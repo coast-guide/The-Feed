@@ -16,4 +16,4 @@ What understanding looks like for this topic, and the brief it should produce.
 | 1 | <concept> | <one line> | <link to material> | not started · in progress · done |
 ~~~
 
-A concept counts as done when it has a note in `docs/learn/` and a lab that reproduces its key behaviour.
+A concept counts as done when it has a note in `docs/learn/` and, if it can be run, a lab that reproduces its key behaviour.

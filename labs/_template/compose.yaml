@@ -1,0 +1,6 @@
+# This lab's stack: one service or as many as the lab needs.
+# Pin every image to a version tag; never use `latest`.
+services:
+  app:
+    image: alpine:3.24
+    command: ["sleep", "infinity"]

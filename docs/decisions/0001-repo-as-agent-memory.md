@@ -11,7 +11,7 @@ Every agent session starts blank, and long sessions are compacted into a summary
 
 1. Tool-local memory: Claude Code auto memory and saved transcripts.
 2. Memory kept in the repo, behind an agent-neutral entry point (`AGENTS.md`).
-3. A spec-driven framework such as GitHub Spec Kit. It suits building features, not a learning log; revisit when building starts.
+3. A spec-driven framework such as GitHub Spec Kit, which suits building software rather than a learning log.
 
 ## Decision
 

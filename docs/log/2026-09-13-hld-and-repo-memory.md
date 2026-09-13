@@ -14,6 +14,8 @@ Design the Hybrid Context Engine using current tools and evidence, then set the 
 - The owner resolved the HLD's five open questions: interface-first, scale-ready, source-agnostic, with compliance behind an interface. The result is HLD v0.2: decisions in [§11](../hybrid-context-engine.html#resolved), new [§4.1 Interfaces](../hybrid-context-engine.html#interfaces) and [§6.2 Policy and compliance](../hybrid-context-engine.html#policy).
 - Added the owner's `/rigor` standard ("How to think") and the interface-first rule to [AGENTS.md](../../AGENTS.md).
 - Reframed the repo after the owner's correction: it is for learning any topic. Added topic maps ([docs/topics/](../topics/README.md)) and the first one, [context engineering](../topics/context-engineering.md), with a draft order.
+- Reviewed the whole repo for stale or repeated content. Removed the leftover agent-factory framing and the dead "Lab 01" reference, and dropped rules stated in more than one file. Reworded ADR 0001's option 3, which implied building happens here; its decision is unchanged, and the decisions rule now allows such corrections.
+- Added the owner's lab standard: every lab is containerised, with its own README and a single `./lab` script as its only interface ([labs/README.md](../../labs/README.md), template in `labs/_template/`). Tested the template end to end with Docker 29.8.0 and Compose v5.1.4: up, run, inspect, logs and reset.
 
 ## Researched, not acted on
 

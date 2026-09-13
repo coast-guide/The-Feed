@@ -8,7 +8,7 @@ An agent session is one context window. It starts with only what the tool loads 
 
 ## Why it matters in production
 
-Autonomous software factories run across many context windows and many machines. Without durable state outside the window, agents redo work, lose decisions, or declare work finished too early. Anthropic reported exactly these failure modes for long-running agents ([2025-11-26](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)).
+Long-running and autonomous agents work across many context windows and many machines. Without durable state outside the window, agents redo work, lose decisions, or declare work finished too early. Anthropic reported exactly these failure modes for long-running agents ([2025-11-26](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)).
 
 ## How it works (Claude Code)
 
@@ -43,7 +43,7 @@ Autonomous software factories run across many context windows and many machines.
 ## Evidence
 
 - Claude Code docs, checked 2026-09-13: [memory](https://code.claude.com/docs/en/memory), [context window](https://code.claude.com/docs/en/context-window), [hooks](https://code.claude.com/docs/en/hooks).
-- Labs: none yet. Lab 01 should confirm the compaction behaviour above.
+- Labs: none yet.
 
 ## Open questions
 
