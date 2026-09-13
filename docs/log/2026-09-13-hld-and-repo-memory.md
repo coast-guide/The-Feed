@@ -11,6 +11,8 @@ Design the Hybrid Context Engine using current tools and evidence, then set the 
 - Researched and wrote the HLD: [hybrid-context-engine.html](../hybrid-context-engine.html).
 - Created the public repo `coast-guide/The-Feed`; the first commit is `eb42cfe`.
 - Set the repo up as the agents' memory: [ADR 0001](../decisions/0001-repo-as-agent-memory.md). The mechanisms behind it are in [session memory and compaction](../learn/session-memory-and-compaction.md).
+- The owner resolved the HLD's five open questions: interface-first, scale-ready, source-agnostic, with compliance behind an interface. The result is HLD v0.2: decisions in [§11](../hybrid-context-engine.html#resolved), new [§4.1 Interfaces](../hybrid-context-engine.html#interfaces) and [§6.2 Policy and compliance](../hybrid-context-engine.html#policy).
+- Added the owner's `/rigor` standard ("How to think") and the interface-first rule to [AGENTS.md](../../AGENTS.md).
 
 ## Researched, not acted on
 

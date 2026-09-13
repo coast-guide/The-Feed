@@ -8,7 +8,7 @@ Learning agent-factory internals through live labs. The mission is in the [READM
 
 ## Now
 
-The repo is set up as the agents' memory ([ADR 0001](decisions/0001-repo-as-agent-memory.md)). No labs have run yet.
+The repo is set up as the agents' memory ([ADR 0001](decisions/0001-repo-as-agent-memory.md)). The HLD is at v0.2, with its open questions resolved ([§11](hybrid-context-engine.html#resolved)). No labs have run yet.
 
 ## Next
 
@@ -18,7 +18,7 @@ The repo is set up as the agents' memory ([ADR 0001](decisions/0001-repo-as-agen
 
 ## Open questions
 
-- The HLD's design questions are waiting on answers: see [§11 of the HLD](hybrid-context-engine.html#open).
+- None blocking. When building starts, the HLD's Bake-off components need a golden set ([§6.5](hybrid-context-engine.html#eval)).
 
 ## Latest log
 
