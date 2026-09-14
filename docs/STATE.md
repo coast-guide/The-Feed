@@ -1,28 +1,31 @@
 # State
 
-Updated 2026-09-13 by Claude Code (Claude Opus 5).
+Updated 2026-09-14 by Claude Code (Claude Opus 5).
 
 ## Phase
 
-Topic 1, context engineering: learning the components of the Hybrid Context Engine HLD. The map is in [topics/context-engineering.md](topics/context-engineering.md).
+Two topics are open:
+
+- **Pluggable monolith** (current focus): how to start a Python and Next.js product whose modules and vendors are pluggable by design, including the GenAI plane. Map: [topics/pluggable-monolith.md](topics/pluggable-monolith.md). Draft brief: [pluggable-monolith.html](pluggable-monolith.html) (published as an Artifact).
+- **Context engineering** (paused): the components of the Hybrid Context Engine HLD. Map: [topics/context-engineering.md](topics/context-engineering.md).
 
 ## Now
 
-Teaching concept 0, interfaces and adapters, step by step through [lab 01](../labs/01-adapter-pattern/README.md). The owner asked for progressive lessons from scratch, Pareto-first, with the lab containerised only at the end. Step 1 of 5 is done; each step ends with a check question for the owner.
+The landscape for the pluggable monolith is researched and written (v0.1, evidence as of 2026-09-14), and the map is drafted with 12 concepts; concepts 1 to 6 are the Pareto core. The owner asked for progressive, Pareto-first lessons from scratch, each ending with a check question, and for labs to be containerised only at the end.
 
-The repo is set up as the agents' memory ([ADR 0001](decisions/0001-repo-as-agent-memory.md)). The HLD is at v0.2, with its open questions resolved ([§11](hybrid-context-engine.html#resolved)).
+Lab 01 (ports and adapters) is concept 2 of the new map and concept 0 of context engineering. Step 1 of 5 is done.
 
 ## Next
 
-1. Lab 01, steps 2 to 5 (port, swap, conformance suite, leaks), as listed in its README.
-2. Containerise lab 01 to the [lab standard](../labs/README.md), write the `docs/learn/` note and mark concept 0 done.
-3. Confirm or reorder the context-engineering map, then start concept 1.
-4. Host selected HTML documents on GitHub Pages. Deferred by the user on 2026-09-13; findings are in the [2026-09-13 log](log/2026-09-13-hld-and-repo-memory.md#researched-not-acted-on).
+1. The owner reviews the landscape, confirms or reorders the map, and answers its open questions ([§15](pluggable-monolith.html#open)): FastAPI or Django, where agents live, lab 01's home, and the lab domain.
+2. Teach concept 1 (where seams go), then continue lab 01 steps 2 to 5 as concept 2.
+3. Containerise lab 01 to the [lab standard](../labs/README.md), write its `docs/learn/` note and mark it done in both maps.
+4. Host selected HTML documents on GitHub Pages. Still deferred; findings are in the [2026-09-13 log](log/2026-09-13-hld-and-repo-memory.md#researched-not-acted-on).
 
 ## Open questions
 
-- None blocking.
+- The four in the landscape's §15. None block the first lesson.
 
 ## Latest log
 
-[2026-09-13 · Adapter pattern lab](log/2026-09-13-adapter-pattern-lab.md)
+[2026-09-14 · Pluggable monolith landscape](log/2026-09-14-pluggable-monolith-landscape.md)

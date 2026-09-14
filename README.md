@@ -12,5 +12,6 @@ A lab for learning any subject to production-grade working depth, running things
 | Document | What it is |
 | --- | --- |
 | [Hybrid Context Engine](docs/hybrid-context-engine.html) | High-level design for a permission-aware context engine across documents, recordings and databases. Open it in a browser. |
+| [Pluggable Monolith](docs/pluggable-monolith.html) | Landscape for starting a product as a modular monolith (Python behind, Next.js in front) whose modules and vendors can be added, swapped or removed, including what generative AI changes. Open it in a browser. |
 
 To add an HTML document, see [AGENTS.md → HTML documents](AGENTS.md#html-documents).

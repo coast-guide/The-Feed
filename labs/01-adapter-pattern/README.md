@@ -1,7 +1,7 @@
 # Lab 01 · What does the adapter pattern buy, and what can't it hide?
 
 Date: 2026-09-13 · Versions: Python 3.12.13, standard library only
-Topic: [context engineering](../../docs/topics/context-engineering.md), concept 0
+Topics: [context engineering](../../docs/topics/context-engineering.md), concept 0; [pluggable monolith](../../docs/topics/pluggable-monolith.md), concept 2
 
 ## Question
 

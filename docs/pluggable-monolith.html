@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}</style>
+<title>Pluggable Monolith</title>
+<meta name="description" content="Landscape for starting a product as a modular monolith, with Python behind and Next.js in front, whose modules and vendors can be added, swapped or removed, including what generative AI changes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@500;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root {
+  --bg: #F3F5F4;
+  --surface: #FFFFFF;
+  --surface-2: #E9EEEC;
+  --ink: #131E1B;
+  --muted: #55625E;
+  --line: #D3DAD7;
+  --line-strong: #A6B2AD;
+  --accent: #2447C8;
+  --accent-soft: #E4E9FB;
+  --stable: #1C7A4B;
+  --stable-soft: #DFF0E6;
+  --bake: #8A5B00;
+  --bake-soft: #F5EAD2;
+  --quarter: #5B49A8;
+  --quarter-soft: #ECE8F8;
+  --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1312;
+    --surface: #141C1A;
+    --surface-2: #1B2522;
+    --ink: #E1E8E5;
+    --muted: #97A5A0;
+    --line: #27322F;
+    --line-strong: #43514C;
+    --accent: #9AACFF;
+    --accent-soft: #1D2547;
+    --stable: #72CF9E;
+    --stable-soft: #14301F;
+    --bake: #E3B85C;
+    --bake-soft: #372B12;
+    --quarter: #BBAEF6;
+    --quarter-soft: #2A2445;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1312;
+  --surface: #141C1A;
+  --surface-2: #1B2522;
+  --ink: #E1E8E5;
+  --muted: #97A5A0;
+  --line: #27322F;
+  --line-strong: #43514C;
+  --accent: #9AACFF;
+  --accent-soft: #1D2547;
+  --stable: #72CF9E;
+  --stable-soft: #14301F;
+  --bake: #E3B85C;
+  --bake-soft: #372B12;
+  --quarter: #BBAEF6;
+  --quarter-soft: #2A2445;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  font-optical-sizing: auto;
+}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font-family: var(--mono); font-size: 0.84em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+strong { font-weight: 600; }
+
+.shell {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding-inline: clamp(16px, 4vw, 48px);
+  padding-block: 44px 96px;
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 56px;
+}
+
+/* contents rail */
+.toc {
+  position: sticky;
+  top: 28px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow: auto;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.toc .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc ol ol { margin: 2px 0 6px 14px; }
+.toc a { display: grid; grid-template-columns: 2.4em 1fr; color: var(--ink); text-decoration: none; padding: 4px 6px; border-radius: 5px; }
+.toc a span { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+.toc a:hover { background: var(--surface-2); }
+.toc ol ol a { color: var(--muted); font-size: 13.5px; }
+
+main { min-width: 0; }
+
+/* header */
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: clamp(36px, 5.4vw, 56px);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  margin: 12px 0 18px;
+  text-wrap: balance;
+}
+.dek { font-size: 20px; line-height: 1.5; max-width: 62ch; margin: 0 0 28px; }
+.assume {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 1040px;
+}
+@media (min-width: 620px) { .assume { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1240px) { .assume { grid-template-columns: repeat(4, 1fr); } }
+.assume div { background: var(--surface); padding: 14px 16px; font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+.assume b { display: block; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+
+/* headings */
+h2 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 80px 0 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  text-wrap: balance;
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+h2 .n, h3 .n { font-family: var(--mono); font-weight: 500; font-size: 0.55em; color: var(--muted); letter-spacing: 0.02em; }
+h3 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 48px 0 10px;
+  text-wrap: balance;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+h4 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 28px 0 6px; }
+main > section > p, .prose p, .prose li, main li { max-width: 70ch; }
+p { margin: 0 0 14px; }
+ul, ol { padding-left: 1.2em; }
+li { margin-bottom: 8px; }
+li::marker { color: var(--muted); }
+
+.lead { font-size: 18.5px; }
+.note { font-family: var(--sans); font-size: 14px; color: var(--muted); max-width: 80ch; }
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 18px 0 10px; }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+table.wide { min-width: 960px; }
+table.mid { min-width: 720px; }
+th {
+  text-align: left;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.k { font-weight: 700; white-space: nowrap; }
+td.pick { font-weight: 600; }
+td code, th code { font-size: 12.5px; }
+.num { font-variant-numeric: tabular-nums; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.chip.stable { color: var(--stable); background: var(--stable-soft); }
+.chip.bake { color: var(--bake); background: var(--bake-soft); }
+.chip.quarter { color: var(--quarter); background: var(--quarter-soft); }
+.key { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--sans); font-size: 13.5px; color: var(--muted); margin: 6px 0 0; }
+.key span.chip { margin-right: 6px; }
+
+/* decision records */
+.adr {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 20px 0 24px;
+  max-width: 980px;
+}
+.adr dt {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 15px 16px 12px;
+  border-top: 1px solid var(--line);
+}
+.adr dd { margin: 0; padding: 12px 20px 14px 0; border-top: 1px solid var(--line); font-size: 16px; line-height: 1.55; }
+.adr dt:first-of-type, .adr dt:first-of-type + dd { border-top: 0; }
+.adr dd.decision { font-family: var(--sans); font-size: 16.5px; font-weight: 600; line-height: 1.45; }
+.adr dd ul { margin: 0; padding-left: 1.1em; }
+.adr dd li { margin-bottom: 6px; max-width: none; }
+@media (max-width: 640px) {
+  .adr { grid-template-columns: 1fr; }
+  .adr dt { padding-bottom: 0; }
+  .adr dd { padding: 6px 16px 14px; border-top: 0; }
+}
+
+/* principles */
+.principles { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 20px 0; max-width: 1040px; }
+@media (min-width: 900px) { .principles { grid-template-columns: repeat(2, 1fr); } }
+.principles article { background: var(--surface); padding: 18px 20px; }
+.principles h4 { margin: 0 0 6px; font-size: 16.5px; }
+.principles p { font-size: 15.5px; line-height: 1.55; margin: 0 0 8px; }
+.principles .ev { font-family: var(--sans); font-size: 13px; color: var(--muted); margin: 0; }
+
+/* figures */
+figure { margin: 30px 0 34px; }
+.fig { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.fig svg { display: block; width: 100%; height: auto; }
+.fig svg.f1 { min-width: 820px; }
+.fig svg.f2, .fig svg.f3 { min-width: 880px; }
+figcaption { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 86ch; margin-top: 12px; }
+figcaption b { color: var(--ink); font-weight: 700; }
+
+/* svg diagram styling via page CSS */
+.dg { color: var(--ink); }
+.dg .bx { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.dg .bx2 { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; }
+.dg .bxd { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 5 4; }
+.dg .bxa { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.3; }
+.dg .lane { fill: var(--surface-2); opacity: 0.6; }
+.dg .sep { stroke: var(--line); stroke-width: 1; }
+.dg .t { fill: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 700; }
+.dg .tl { fill: var(--ink); font-family: var(--sans); font-size: 15px; font-weight: 800; }
+.dg .tm { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.dg .ta { fill: var(--accent); font-family: var(--sans); font-size: 13px; font-weight: 700; }
+.dg .s { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.dg .sm { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+.dg .lay { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em; }
+.dg .l { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.dg .la { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+.dg .e { stroke: var(--ink); stroke-width: 1.2; fill: none; }
+.dg .em { stroke: var(--muted); stroke-width: 1.1; fill: none; }
+.dg .ea { stroke: var(--accent); stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; }
+.dg .ah { fill: var(--ink); }
+.dg .ahm { fill: var(--muted); }
+.dg .aha { fill: var(--accent); }
+.dg .pill { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+
+pre {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  max-width: 980px;
+  margin: 16px 0 20px;
+}
+pre .c { color: var(--muted); }
+
+.sources h3 { font-size: 16px; margin: 30px 0 8px; }
+.sources ul { font-family: var(--sans); font-size: 14px; line-height: 1.45; padding-left: 1.1em; columns: 1; }
+@media (min-width: 1000px) { .sources ul { columns: 2; column-gap: 40px; } }
+.sources li { break-inside: avoid; max-width: none; margin-bottom: 7px; }
+
+footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 13.5px; color: var(--muted); max-width: 90ch; }
+
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .toc { position: static; max-height: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px 16px; }
+  .toc > ol { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); column-gap: 12px; }
+  .toc ol ol { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+
+/* additions for the Pluggable Monolith landscape */
+.fig svg.p1 { min-width: 880px; }
+.fig svg.p2 { min-width: 880px; }
+.fig svg.p3 { min-width: 880px; }
+pre.tree { line-height: 1.55; }
+pre .h { color: var(--accent); font-weight: 600; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 24px; align-items: start; max-width: 1040px; }
+@media (min-width: 1180px) { .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pair pre { max-width: none; }
+.path { counter-reset: step; list-style: none; padding: 0; margin: 18px 0; max-width: 980px; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.path li { counter-increment: step; background: var(--surface); padding: 12px 16px 12px 58px; position: relative; margin: 0; max-width: none; font-size: 16px; line-height: 1.5; }
+.path li::before { content: counter(step); position: absolute; left: 18px; top: 12px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.path li b { font-family: var(--sans); font-weight: 700; }
+.path li.core { background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="toc" aria-label="Contents">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#summary"><span>1</span>The answer on one page</a></li>
+      <li><a href="#atoms"><span>2</span>The atoms</a></li>
+      <li><a href="#shape"><span>3</span>System at a glance</a></li>
+      <li><a href="#module"><span>4</span>Anatomy of a module</a></li>
+      <li><a href="#talk"><span>5</span>How modules talk</a></li>
+      <li><a href="#data"><span>6</span>Data ownership</a></li>
+      <li><a href="#enforce"><span>7</span>Enforcement and the deletion test</a></li>
+      <li><a href="#compose"><span>8</span>Composition and plugins</a></li>
+      <li><a href="#web"><span>9</span>Next.js as a composition shell</a></li>
+      <li><a href="#ai"><span>10</span>The GenAI plane</a>
+        <ol>
+          <li><a href="#ai-forces"><span>10.1</span>What AI changes</a></li>
+          <li><a href="#models"><span>10.2</span>Model plane</a></li>
+          <li><a href="#ai-modules"><span>10.3</span>AI features as modules</a></li>
+          <li><a href="#durable"><span>10.4</span>Long-running work</a></li>
+          <li><a href="#evals"><span>10.5</span>Evals and tracing</a></li>
+          <li><a href="#ai-security"><span>10.6</span>Security</a></li>
+        </ol>
+      </li>
+      <li><a href="#evolve"><span>11</span>Scale and extraction</a></li>
+      <li><a href="#breaks"><span>12</span>What breaks</a></li>
+      <li><a href="#not-chosen"><span>13</span>Deliberately not chosen</a></li>
+      <li><a href="#start"><span>14</span>Where to start</a></li>
+      <li><a href="#open"><span>15</span>Open questions</a></li>
+      <li><a href="#sources"><span>16</span>Sources</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header>
+      <p class="eyebrow">Landscape · v0.1 · evidence checked 14 Sep 2026</p>
+      <h1>Pluggable Monolith</h1>
+      <p class="dek">How to start a product today as one codebase, with Python behind and Next.js in front, whose modules and vendors can be added, swapped or removed without touching the rest. And what generative AI changes about that design.</p>
+      <div class="assume" role="list">
+        <div role="listitem"><b>Goal</b>Adding, swapping or removing a module or a vendor touches that module and one line of wiring.</div>
+        <div role="listitem"><b>Achievable</b>Change costs in proportion to its size. Removing a module is a config line plus dropping its schema.</div>
+        <div role="listitem"><b>Not achievable</b>Zero rework. Contracts still evolve, and some swaps, such as embedding models and prompts, leak through any interface.</div>
+        <div role="listitem"><b>Proof</b>Boundary contracts and a deletion test run in CI on every commit (§7). If they pass, the claim holds.</div>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="summary">
+      <h2><span class="n">1</span>The answer on one page</h2>
+      <p class="lead">Build a modular monolith. One repository and a few processes (web, API, workers) hold many modules. Each module owns one business capability and its data, and other code reaches it only through its published contract. Every external dependency, the LLM included, sits behind an interface the core owns. Tools check the boundaries in CI, and the proof that a module is pluggable is a test that removes it and expects everything else to pass.</p>
+      <p>Versions are the latest releases on 14 Sep 2026, taken from PyPI, npm and GitHub. “Switch when” names the trigger that should reopen a choice.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead>
+            <tr><th>Layer</th><th>Default pick</th><th>Why, in one line</th><th>Switch when</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k">Shape</td><td class="pick">Modular monolith: modules by business capability, each with a public API, private internals and its own schema</td><td>One deploy and in-process calls now; boundaries that make extraction mechanical later</td><td>A module needs its own scaling profile, runtime, release cadence or fault isolation (§11)</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Seams</td><td class="pick">Interfaces on volatile edges only: vendors, infrastructure, the model and other modules</td><td>Every seam costs indirection, so spend seams where change is likely (§2)</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Backend</td><td class="pick">FastAPI 0.141 and Pydantic 2.13 on Python 3.14; SQLAlchemy 2.0 and Alembic 1.20</td><td>Pydantic models are one contract language for HTTP, events and LLM output</td><td>Mostly back-office CRUD: Django 6.1, whose apps are built-in pluggable modules, with Django Ninja</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Python workspace</td><td class="pick">uv 0.12 workspace: one member package per module, one lockfile</td><td>Each module declares what it depends on, in its own <code>pyproject.toml</code></td><td>Modules need conflicting dependencies, which uv's docs say workspaces don't suit</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Python boundaries</td><td class="pick">import-linter 2.15 contracts in CI, plus deptry 0.25 for undeclared dependencies</td><td>Kraken keeps a 27,637-module Python monolith in its layers with over 40 contracts</td><td>tach 0.35 if you want declared module interfaces and dependencies in one tool</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Frontend</td><td class="pick">Next.js 16.3 on React 19.3: <code>app/</code> does routing and composition, features live in modules with a public index</td><td>Next.js is unopinionated about structure, so the module rules have to come from you</td><td>Separate teams need separate deploys: Next.js multi-zones</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">JS workspace</td><td class="pick">pnpm 12 and Turborepo 2.10; eslint-plugin-boundaries 7 or dependency-cruiser 18 for import rules</td><td>Mature rule engines. Turborepo's own boundaries check is still experimental</td><td>Nx 23 if you want one graph-aware tool across both languages (not evaluated here)</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">API contract</td><td class="pick">FastAPI's OpenAPI 3.1 feeds a generated TypeScript client: Hey API 0.99 (pre-1.0, so pin it) or Orval 8</td><td>The Python code is the source of truth, so the client can't drift from it</td><td>Many clients need different shapes of one graph: GraphQL</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Module messaging</td><td class="pick">Calls to public APIs to ask; in-process domain events to tell; a transactional outbox from day one</td><td>Subscribers can be removed without touching the publisher, and events survive the later move to async</td><td>Consumers outside the monolith, or high volume: a broker behind the same port (FastStream 0.7 is one adapter)</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Runtime toggles</td><td class="pick">OpenFeature SDKs in Python and Next.js</td><td>A CNCF incubating standard; any flag vendor becomes a provider</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Telemetry</td><td class="pick">OpenTelemetry, with the GenAI conventions for model, agent and MCP spans</td><td>One standard; observability vendors become adapters. The GenAI conventions are still at Development status, so pin a version</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Model plane</td><td class="pick">Code asks for capability aliases such as <code>chat.fast</code>, <code>chat.reason</code>, <code>embed.default</code>; a gateway maps them to models, with fallbacks and budgets</td><td>Models churn monthly; an alias confines a swap to config plus an eval run</td><td>Add learned routing only when your evals show it beats static routing on your traffic (§10.2)</td><td><span class="chip quarter">Quarterly</span></td></tr>
+            <tr><td class="k">Agents</td><td class="pick">Pydantic AI 2.x in Python, next to the modules and data; AI SDK 7 UI hooks in Next.js</td><td>Pydantic AI streams both AG-UI and the AI SDK protocol, so agent and UI can be swapped separately</td><td>A mostly TypeScript team: AI SDK 7 agents in Next.js route handlers</td><td><span class="chip quarter">Quarterly</span></td></tr>
+            <tr><td class="k">Tools and interop</td><td class="pick">Agent tools are thin wrappers over module APIs. MCP (spec 2026-07-28) exposes them outside; A2A only between systems</td><td>Agents inherit module rules and permissions instead of going around them</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+            <tr><td class="k">Long-running work</td><td class="pick">DBOS durable workflows: a library that checkpoints to Postgres</td><td>No new infrastructure for a monolith, and Pydantic AI integrates it first-party</td><td>Workflows shared across many services or teams: Temporal</td><td><span class="chip bake">Bake-off</span></td></tr>
+            <tr><td class="k">Evals</td><td class="pick">An eval suite per AI module, run in CI like tests</td><td>Swapping a model or a prompt needs evidence, not a demo</td><td>—</td><td><span class="chip stable">Stable</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="key"><span><span class="chip stable">Stable</span>a safe default for years</span><span><span class="chip bake">Bake-off</span>test on your own workload before committing</span><span><span class="chip quarter">Quarterly</span>fast-moving; re-check every quarter</span></p>
+    </section>
+
+    <!-- 2 -->
+    <section id="atoms">
+      <h2><span class="n">2</span>The atoms</h2>
+      <p>Eight rules generate most of the choices in this document. The first four decide where boundaries go; the last four keep them real.</p>
+      <div class="principles">
+        <article>
+          <h4>Hide the decisions likely to change</h4>
+          <p>Parnas's criterion from 1972 still decides where boundaries go: list the design decisions that may change, and make each module the only place that knows one of them. A module is not a step in a flowchart or a layer of technology.</p>
+          <p class="ev">Source: Parnas, <a href="https://doi.org/10.1145/361598.361623">“On the criteria to be used in decomposing systems into modules”</a>, CACM 15(12), 1972.</p>
+        </article>
+        <article>
+          <h4>Depend on interfaces you own</h4>
+          <p>The core declares the port it needs, in its own terms, and adapters translate each vendor to it. Dependencies point inward, so swapping a vendor never edits the core.</p>
+          <p class="ev">Source: Cockburn, <a href="https://alistair.cockburn.us/hexagonal-architecture/">Hexagonal architecture</a> (2005). In <a href="https://github.com/coast-guide/The-Feed/blob/main/labs/01-adapter-pattern/README.md">lab 01</a>, switching vendor without a port changed 21 lines across two core functions.</p>
+        </article>
+        <article>
+          <h4>Balance coupling; don't just minimise it</h4>
+          <p>Coupling has three dimensions: how much knowledge two parts share, how far apart they are, and how often they change. Sharing a lot is fine up close; sharing little is fine far apart; and anything is fine if it never changes. Pain comes from sharing a lot, at a distance, on something volatile.</p>
+          <p class="ev">Source: Khononov, <a href="https://www.pearson.com/en-us/subject-catalog/p/balancing-coupling-in-software-design-successful-software-architecture-in-general-and-distributed-systems/P200000000372/9780137353576"><i>Balancing Coupling in Software Design</i></a> (2024). His formula: <a href="https://coupling.dev/posts/core-concepts/balance/">balance = (strength XOR distance) OR NOT volatility</a>.</p>
+        </article>
+        <article>
+          <h4>Every seam has a price</h4>
+          <p>An interface adds a second place to read, a mapping to maintain, and a contract that drifts toward the lowest common denominator of its vendors. An interface with one implementation that nobody will replace is speculative generality. “Everything pluggable” is its own kind of rework; put seams on the volatile axes only.</p>
+          <p class="ev">This is the correction to “zero rework by design”: the target is change in proportion to its size, not no change.</p>
+        </article>
+        <article>
+          <h4>A module owns a capability, its data and its contract</h4>
+          <p>A module has a provided interface (the API and events it publishes), internals nobody else touches, and a required interface (the APIs it calls, the events it reacts to, the configuration it takes). Its tables are internals. Other modules pass IDs and data objects across the line, never live ORM objects.</p>
+          <p class="ev">Source: the clearest definition is <a href="https://docs.spring.io/spring-modulith/reference/fundamentals.html">Spring Modulith's application module</a>. The idea carries over to any language.</p>
+        </article>
+        <article>
+          <h4>Enforce boundaries by machine</h4>
+          <p>Boundaries that live only in people's heads erode, and coding agents erode them faster. Import contracts that fail the build hold the line. For code that already breaks them, list the known violations and make CI allow no new ones.</p>
+          <p class="ev">Evidence: <a href="https://blog.europython.eu/kraken-technologies-how-we-organize-our-very-large-pythonmonolith/">Kraken</a> (2023): over 40 import-linter contracts, ignored imports tracked as debt. <a href="https://arxiv.org/abs/2604.06742">Hu et al.</a> (2026), benchmarking agents that build CLI tools from scratch: agents “exhibit a strong tendency to generate monolithic code structures”.</p>
+        </article>
+        <article>
+          <h4>Prove it with running code</h4>
+          <p>Static checks see imports, not behaviour. The test of pluggability is to remove a module and run everything else. If that passes, the module was pluggable; if it doesn't, the failure shows exactly where the hidden coupling is.</p>
+          <p class="ev">Source: <a href="https://railsatscale.com/2024-01-26-a-packwerk-retrospective/">Shopify's Packwerk retrospective</a> (2024): “running code, more than any metric, will always be the best indicator of real progress.”</p>
+        </article>
+        <article>
+          <h4>Use standards as free ports</h4>
+          <p>Where an open standard exists, it is already the interface and every vendor is already an adapter: OIDC for identity, OpenAPI for HTTP, OpenTelemetry for telemetry, OpenFeature for flags, CloudEvents for event envelopes, MCP for tools, A2A for agents.</p>
+          <p class="ev">Status: <a href="https://www.cncf.io/projects/cloudevents/">CloudEvents</a> graduated in CNCF (2024-01-25); <a href="https://www.cncf.io/projects/openfeature/">OpenFeature</a> is incubating (since 2023-11-21); MCP and A2A are <a href="https://aaif.io/blog/a2a-joins-aaif">Agentic AI Foundation</a> projects.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="shape">
+      <h2><span class="n">3</span>System at a glance</h2>
+      <p>Three processes are built from one codebase. The web app and the API meet at a generated contract. Modules meet each other only through public APIs and events, and reach the outside world only through ports in a small kernel.</p>
+      <figure>
+        <div class="fig">
+          <svg class="dg p1" viewBox="0 0 1000 692" role="img" aria-label="System overview. The browser talks to the Next.js web app, whose routes compose feature packages over a generated API client. The web app calls the FastAPI composition root over HTTP with OpenAPI. The API and a worker process load the same modules: catalog, orders and billing. Each module has a public band, private internals and its own schema. Orders calls the catalog's public API and publishes an event that billing handles. Modules reach the outside world through kernel ports whose adapters connect to Postgres, a broker, an identity provider, a flag vendor, a telemetry collector and an LLM gateway.">
+            <defs>
+              <marker id="p1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+              <marker id="p1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="aha"/></marker>
+            </defs>
+
+            <text class="lay" x="16" y="37">BROWSER</text>
+            <text class="lay" x="16" y="146">WEB</text>
+            <text class="lay" x="16" y="160">NEXT.JS 16</text>
+            <text class="lay" x="16" y="273">PROCESSES</text>
+            <text class="lay" x="16" y="392">MODULES</text>
+            <text class="lay" x="16" y="541">KERNEL</text>
+            <text class="lay" x="16" y="623">OUTSIDE</text>
+
+            <!-- browser -->
+            <rect class="bx2" x="150" y="12" width="830" height="40" rx="6"/>
+            <text class="t" x="565" y="37" text-anchor="middle">Browser: pages, forms, streaming chat</text>
+            <path class="e" d="M565,52 V82" marker-end="url(#p1a)"/>
+            <text class="l" x="577" y="72">HTML · RSC payload · streamed tokens</text>
+
+            <!-- web -->
+            <rect class="bx" x="150" y="84" width="830" height="132" rx="6"/>
+            <text class="tl" x="170" y="110">apps/web</text>
+            <text class="sm" x="262" y="110">app/ routes · layouts · proxy.ts: routing and composition only</text>
+            <rect class="bx2" x="170" y="124" width="190" height="42" rx="4"/>
+            <text class="tm" x="265" y="150" text-anchor="middle">features/catalog</text>
+            <rect class="bx2" x="374" y="124" width="190" height="42" rx="4"/>
+            <text class="tm" x="469" y="150" text-anchor="middle">features/orders</text>
+            <rect class="bx2" x="578" y="124" width="190" height="42" rx="4"/>
+            <text class="tm" x="673" y="150" text-anchor="middle">features/billing</text>
+            <rect class="bx2" x="782" y="124" width="178" height="42" rx="4"/>
+            <text class="tm" x="871" y="150" text-anchor="middle">shared/ui</text>
+            <rect class="bxa" x="170" y="176" width="790" height="28" rx="4"/>
+            <text class="ta" x="565" y="195" text-anchor="middle">packages/api-client: generated from OpenAPI, so types can't drift</text>
+            <path class="e" d="M565,216 V246" marker-end="url(#p1a)"/>
+            <text class="la" x="577" y="236">HTTP · OpenAPI 3.1 · SSE for streams</text>
+
+            <!-- processes -->
+            <rect class="bx" x="150" y="248" width="610" height="42" rx="6"/>
+            <text class="t" x="170" y="274">apps/api · FastAPI composition root: loads enabled modules, binds adapters</text>
+            <rect class="bx" x="776" y="248" width="204" height="42" rx="6"/>
+            <text class="t" x="878" y="266" text-anchor="middle">apps/worker</text>
+            <text class="s" x="878" y="282" text-anchor="middle">same modules, other entry</text>
+            <path class="e" d="M270,290 V318" marker-end="url(#p1a)"/>
+            <path class="e" d="M565,290 V318" marker-end="url(#p1a)"/>
+            <path class="e" d="M860,290 V318" marker-end="url(#p1a)"/>
+            <text class="l" x="577" y="309">register(app, kernel)</text>
+
+            <!-- modules -->
+            <rect class="bx" x="150" y="320" width="240" height="162" rx="6"/>
+            <text class="tl" x="166" y="346">catalog</text>
+            <rect class="bxa" x="162" y="358" width="216" height="40" rx="4"/>
+            <text class="sm" x="174" y="375">public: api · events</text>
+            <text class="sm" x="174" y="391">faces: http · tools</text>
+            <rect class="bx2" x="162" y="404" width="216" height="36" rx="4"/>
+            <text class="s" x="174" y="426">_internal: domain, ORM</text>
+            <rect class="bxd" x="162" y="446" width="216" height="26" rx="4"/>
+            <text class="s" x="174" y="463">schema catalog.*</text>
+
+            <rect class="bx" x="445" y="320" width="240" height="162" rx="6"/>
+            <text class="tl" x="461" y="346">orders</text>
+            <rect class="bxa" x="457" y="358" width="216" height="40" rx="4"/>
+            <text class="sm" x="469" y="375">public: api · events</text>
+            <text class="sm" x="469" y="391">faces: http · tools</text>
+            <rect class="bx2" x="457" y="404" width="216" height="36" rx="4"/>
+            <text class="s" x="469" y="426">_internal: domain, ORM</text>
+            <rect class="bxd" x="457" y="446" width="216" height="26" rx="4"/>
+            <text class="s" x="469" y="463">schema orders.*</text>
+
+            <rect class="bx" x="740" y="320" width="240" height="162" rx="6"/>
+            <text class="tl" x="756" y="346">billing</text>
+            <rect class="bxa" x="752" y="358" width="216" height="40" rx="4"/>
+            <text class="sm" x="764" y="375">public: api · events</text>
+            <text class="sm" x="764" y="391">faces: http · tools</text>
+            <rect class="bx2" x="752" y="404" width="216" height="36" rx="4"/>
+            <text class="s" x="764" y="426">_internal: domain, ORM</text>
+            <rect class="bxd" x="752" y="446" width="216" height="26" rx="4"/>
+            <text class="s" x="764" y="463">schema billing.*</text>
+
+            <path class="e" d="M457,378 H382" marker-end="url(#p1a)"/>
+            <path class="ea" d="M673,378 H748" marker-end="url(#p1b)"/>
+
+            <!-- kernel -->
+            <path class="em" d="M270,482 V512" marker-end="url(#p1a)"/>
+            <path class="em" d="M565,482 V512" marker-end="url(#p1a)"/>
+            <path class="em" d="M860,482 V512" marker-end="url(#p1a)"/>
+            <text class="l" x="282" y="502">ports</text>
+            <rect class="bx" x="150" y="514" width="830" height="46" rx="6"/>
+            <text class="tl" x="170" y="542">kernel</text>
+            <text class="sm" x="246" y="542">ports: db · event bus + outbox · identity · flags · telemetry · model gateway · blobs</text>
+            <path class="e" d="M565,560 V590" marker-end="url(#p1a)"/>
+            <text class="l" x="577" y="580">adapters chosen at boot, from config</text>
+
+            <!-- outside -->
+            <rect class="bx2" x="150" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="214" y="614" text-anchor="middle">Postgres</text>
+            <text class="s" x="214" y="632" text-anchor="middle">schema per module</text>
+            <rect class="bx2" x="290" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="354" y="614" text-anchor="middle">Broker</text>
+            <text class="s" x="354" y="632" text-anchor="middle">when needed</text>
+            <rect class="bx2" x="430" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="494" y="614" text-anchor="middle">Identity</text>
+            <text class="s" x="494" y="632" text-anchor="middle">any OIDC provider</text>
+            <rect class="bx2" x="570" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="634" y="614" text-anchor="middle">Flags</text>
+            <text class="s" x="634" y="632" text-anchor="middle">any flag vendor</text>
+            <rect class="bx2" x="710" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="774" y="614" text-anchor="middle">Telemetry</text>
+            <text class="s" x="774" y="632" text-anchor="middle">OTel collector</text>
+            <rect class="bx2" x="850" y="592" width="128" height="52" rx="4"/>
+            <text class="t" x="914" y="614" text-anchor="middle">LLM gateway</text>
+            <text class="s" x="914" y="632" text-anchor="middle">→ model providers</text>
+
+            <!-- legend -->
+            <path class="e" d="M150,674 H182" marker-end="url(#p1a)"/>
+            <text class="l" x="192" y="678">calls a public API (ask)</text>
+            <path class="ea" d="M380,674 H412" marker-end="url(#p1b)"/>
+            <text class="l" x="422" y="678">publishes an event via the outbox (tell)</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 1.</b> One codebase, three processes. The API and the worker load the same modules; only the entry point differs. Orders asks the catalog a question through its public API and tells billing a fact through an event. Nothing below a module's accent band is visible to other modules.</figcaption>
+      </figure>
+
+      <h3>Repository layout</h3>
+      <pre class="tree"><span class="h">product/</span>
+├─ apps/
+│  ├─ api/          FastAPI composition root: loads the enabled modules
+│  ├─ worker/       the same modules, background entry point
+│  └─ web/          Next.js 16: routes and composition only
+├─ modules/         one uv workspace member per business capability
+│  ├─ catalog/
+│  ├─ orders/
+│  ├─ billing/
+│  └─ assistant/    an AI feature is a module like any other (§10.3)
+├─ kernel/          ports and plumbing only: db, bus, outbox, identity, flags,
+│                   telemetry, model gateway. No business code, ever.
+├─ packages/        the TypeScript workspace
+│  ├─ api-client/   generated from contracts/openapi.json
+│  ├─ ui/           design system
+│  └─ features/     one package per frontend feature, mirroring the modules
+├─ contracts/       generated OpenAPI and event schemas, checked in and diffed
+├─ pyproject.toml   uv workspace root, import-linter contracts
+├─ pnpm-workspace.yaml · turbo.json
+└─ AGENTS.md        repository rules; each module adds its own AGENTS.md</pre>
+      <p class="note">The kernel is the part most likely to rot. It holds interfaces and plumbing that every module needs and nothing that belongs to one of them. A “common” or “utils” package that grows domain code turns into the dependency everyone shares, and then nothing can be removed.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="module">
+      <h2><span class="n">4</span>Anatomy of a module</h2>
+      <p>A module is the unit you add or remove. It is a package with one front door, and everything behind that door is private.</p>
+      <figure>
+        <div class="fig">
+          <svg class="dg p2" viewBox="0 0 1000 430" role="img" aria-label="Module anatomy for a billing module. Three consumers reach it through its provided interface: Next.js over HTTP, agents through tools, and other modules through API calls and event subscriptions. The provided band lists __init__.py, api.py, events.py, http.py and tools.py. Below it, internals hold the domain, ORM models, repositories and adapters. The required band lists ports.py and the declared module dependencies, which connect to a payment provider and to other modules' public APIs. The module's own Postgres schema sits at the bottom.">
+            <defs>
+              <marker id="p2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+            </defs>
+            <text class="lay" x="30" y="50">PROVIDED TO</text>
+            <text class="lay" x="720" y="262">REQUIRES</text>
+
+            <rect class="bx2" x="30" y="66" width="250" height="44" rx="4"/>
+            <text class="t" x="46" y="85">Next.js</text>
+            <text class="s" x="46" y="101">HTTP, through the generated client</text>
+            <rect class="bx2" x="30" y="118" width="250" height="44" rx="4"/>
+            <text class="t" x="46" y="137">Agents</text>
+            <text class="s" x="46" y="153">tools; MCP for outside agents</text>
+            <rect class="bx2" x="30" y="170" width="250" height="44" rx="4"/>
+            <text class="t" x="46" y="189">Other modules</text>
+            <text class="s" x="46" y="205">api calls · event subscriptions</text>
+            <path class="e" d="M280,88 H344" marker-end="url(#p2a)"/>
+            <path class="e" d="M280,140 H344" marker-end="url(#p2a)"/>
+            <path class="e" d="M280,192 H344" marker-end="url(#p2a)"/>
+
+            <rect class="bx" x="330" y="20" width="340" height="396" rx="8"/>
+            <text class="tl" x="350" y="48">billing</text>
+            <text class="s" x="420" y="48">one uv workspace member</text>
+
+            <rect class="bxa" x="346" y="62" width="308" height="136" rx="5"/>
+            <text class="la" x="362" y="82">PROVIDED · THE ONLY DOOR</text>
+            <text class="sm" x="362" y="104">__init__.py</text><text class="s" x="462" y="104">re-exports the public API</text>
+            <text class="sm" x="362" y="124">api.py</text><text class="s" x="462" y="124">functions + DTOs</text>
+            <text class="sm" x="362" y="144">events.py</text><text class="s" x="462" y="144">facts it publishes</text>
+            <text class="sm" x="362" y="164">http.py</text><text class="s" x="462" y="164">router over api.py</text>
+            <text class="sm" x="362" y="184">tools.py</text><text class="s" x="462" y="184">agent tools over api.py</text>
+
+            <rect class="bx2" x="346" y="206" width="308" height="74" rx="5"/>
+            <text class="lay" x="362" y="226">INTERNAL · FREE TO CHANGE</text>
+            <text class="sm" x="362" y="248">_internal/</text><text class="s" x="462" y="248">domain, ORM, repositories</text>
+            <text class="sm" x="362" y="268">└ adapters/</text><text class="s" x="462" y="268">implement its ports</text>
+
+            <rect class="bx" x="346" y="288" width="308" height="80" rx="5"/>
+            <text class="lay" x="362" y="308">REQUIRED · DECLARED, NOT ASSUMED</text>
+            <text class="sm" x="362" y="332">ports.py</text><text class="s" x="462" y="332">Protocols it needs</text>
+            <text class="sm" x="362" y="354">pyproject</text><text class="s" x="462" y="354">modules it may call</text>
+
+            <rect class="bxd" x="346" y="376" width="308" height="30" rx="5"/>
+            <text class="sm" x="362" y="396">schema billing.* · migrations/</text>
+
+            <path class="e" d="M654,300 H718" marker-end="url(#p2a)"/>
+            <path class="e" d="M654,350 H718" marker-end="url(#p2a)"/>
+            <path class="em" d="M654,391 H718" marker-end="url(#p2a)"/>
+            <rect class="bx2" x="720" y="280" width="250" height="40" rx="4"/>
+            <text class="t" x="736" y="297">Payment provider</text>
+            <text class="s" x="736" y="312">through an adapter it owns</text>
+            <rect class="bx2" x="720" y="330" width="250" height="40" rx="4"/>
+            <text class="t" x="736" y="347">orders, catalog</text>
+            <text class="s" x="736" y="362">their public APIs only</text>
+            <rect class="bx2" x="720" y="374" width="250" height="36" rx="4"/>
+            <text class="t" x="736" y="390">Postgres</text>
+            <text class="s" x="736" y="404">its own schema, its own role</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 2.</b> One contract, three faces. The HTTP router and the agent tools are thin wrappers over the same public API, so the UI, agents and other modules all get the same rules and permissions. Everything below the accent band can change without telling anyone.</figcaption>
+      </figure>
+
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>File</th><th>Holds</th><th>Who may import it</th></tr></thead>
+          <tbody>
+            <tr><td class="k"><code>__init__.py</code></td><td>Re-exports of the public API: functions, data objects, events</td><td>Anyone</td></tr>
+            <tr><td class="k"><code>api.py</code></td><td>Use-case functions that take and return Pydantic data objects, never ORM objects</td><td>Through <code>__init__</code> only</td></tr>
+            <tr><td class="k"><code>events.py</code></td><td>Versioned event types it publishes; this file is the module's event catalogue</td><td>Anyone, to subscribe</td></tr>
+            <tr><td class="k"><code>http.py</code>, <code>tools.py</code></td><td>A FastAPI router and agent tools, each a few lines over <code>api.py</code></td><td>The composition root and the assistant</td></tr>
+            <tr><td class="k"><code>ports.py</code></td><td><code>typing.Protocol</code> interfaces for what it needs from outside</td><td>Its own adapters</td></tr>
+            <tr><td class="k"><code>_internal/</code></td><td>Domain logic, ORM models, repositories, adapters</td><td>This module only, enforced in CI</td></tr>
+            <tr><td class="k"><code>migrations/</code></td><td>Its own Alembic version directory for its own schema</td><td>The migration runner</td></tr>
+            <tr><td class="k"><code>AGENTS.md</code></td><td>Purpose, contract and rules, so a coding agent can work inside the module with a small context</td><td>People and agents</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pair">
+<pre><span class="c"># modules/billing/src/billing/__init__.py: the only door</span>
+from billing.api import create_invoice, get_invoice
+from billing.contracts import CreateInvoice, InvoiceView
+from billing.events import InvoicePaid
+
+__all__ = ["create_invoice", "get_invoice",
+           "CreateInvoice", "InvoiceView", "InvoicePaid"]</pre>
+<pre><span class="c"># pyproject.toml at the workspace root</span>
+[tool.importlinter]
+root_packages = ["kernel", "catalog", "orders", "billing"]
+
+[[tool.importlinter.contracts]]
+name = "billing internals are private"
+type = "protected"
+protected_modules = ["billing._internal"]
+allowed_importers = ["billing"]
+
+[[tool.importlinter.contracts]]
+name = "the kernel knows no module"
+type = "forbidden"
+source_modules = ["kernel"]
+forbidden_modules = ["catalog", "orders", "billing"]</pre>
+      </div>
+      <p class="note">Sketches. The contract syntax follows the import-linter 2.15 docs; nothing here has run in a lab yet.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="talk">
+      <h2><span class="n">5</span>How modules talk</h2>
+      <p>There are four ways across a module line. Pick by what you need to happen when the other side is removed.</p>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Style</th><th>Use it to</th><th>Coupling</th><th>If the other side is removed</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Public API call</td><td>Ask a question you need answered inside this request</td><td>Explicit: a typed function signature, declared as a dependency</td><td>The build fails. That's correct: it was a real dependency</td></tr>
+            <tr><td class="k">Domain event, in process</td><td>Tell others a fact; they decide what to do</td><td>Weak: the publisher doesn't know its subscribers</td><td>Its handlers vanish; the publisher is unaffected</td></tr>
+            <tr><td class="k">Outbox, then broker</td><td>Tell a fact that must survive a crash, or reach another process</td><td>Weak and durable</td><td>As for events, plus the ability to replay</td></tr>
+            <tr><td class="k">HTTP with OpenAPI</td><td>Cross a process line: web to API, or to an extracted module</td><td>A contract, over the network</td><td>Generated types and contract tests catch it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Ask with calls, tell with events.</strong> A module must never wait on another module's event to finish its own transaction.</li>
+        <li><strong>Write events to an outbox table in the same transaction as the change.</strong> A relay then publishes them, in process at first and to a broker later. The outbox is what makes “publish if and only if the change committed” true (<a href="https://microservices.io/patterns/data/transactional-outbox.html">transactional outbox</a>).</li>
+        <li><strong>Keep the dependency graph acyclic and declared.</strong> Each dependency is listed in the module's <code>pyproject.toml</code> and allowed by an import contract. A cycle means two modules are really one, or a third is missing.</li>
+        <li><strong>Version events like APIs.</strong> Add fields; never repurpose one. Use a CloudEvents envelope once events leave the process.</li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section id="data">
+      <h2><span class="n">6</span>Data ownership</h2>
+      <p>Most modular monoliths fail here, not in the code. A shared table is a shared internal, and no import linter can see it.</p>
+      <ul>
+        <li><strong>One Postgres, one schema per module.</strong> Each module keeps its migrations in its own Alembic version directory. Alembic supports this directly: “if an application is organized into several sub-modules, each one would have a version directory containing migrations pertinent to that module” (<a href="https://alembic.sqlalchemy.org/en/latest/branches.html">Working with Multiple Bases</a>).</li>
+        <li><strong>No joins or foreign keys across schemas.</strong> To read another module's data, call its API or keep a local read model fed by its events.</li>
+        <li><strong>Optional hard wall:</strong> give each module a database role that can touch only its own schema. A cross-module query then fails at runtime instead of passing review.</li>
+        <li><strong>Removing a module</strong> means disabling it, exporting what you must keep, and dropping its schema. Nothing else references it.</li>
+        <li><strong>Vectors, blobs and caches are ports too.</strong> Start with what Postgres and S3-compatible storage give you; the adapter changes when the numbers demand it.</li>
+      </ul>
+    </section>
+
+    <!-- 7 -->
+    <section id="enforce">
+      <h2><span class="n">7</span>Enforcement and the deletion test</h2>
+      <p>Each check below catches one kind of erosion. Together they turn “we agreed on boundaries” into a build that fails.</p>
+      <div class="tw">
+        <table class="wide">
+          <thead><tr><th>Check</th><th>Python</th><th>TypeScript</th><th>Catches</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Import rules</td><td>import-linter 2.15: forbidden, protected, layers, independence and acyclic-siblings contracts. Or tach 0.35</td><td>eslint-plugin-boundaries 7.2 or dependency-cruiser 18.3; Steiger 0.6 if you use Feature-Sliced Design</td><td>Reaching into internals, dependencies in the wrong direction, cycles</td></tr>
+            <tr><td class="k">Undeclared dependencies</td><td>deptry 0.25, run per workspace member</td><td><code>turbo boundaries</code> (experimental) flags packages missing from <code>package.json</code></td><td>Code that works only because a shared environment happens to contain the package</td></tr>
+            <tr><td class="k">Server/client leaks</td><td>—</td><td><code>import "server-only"</code> gives a build error if a client component imports it; a separate <code>index.server.ts</code> per feature</td><td>Secrets and server code pulled into the browser bundle</td></tr>
+            <tr><td class="k">Contract drift</td><td>OpenAPI regenerated and diffed in CI</td><td>Client regenerated; <code>tsc</code> fails on changes that break it</td><td>Web and API disagreeing about a shape</td></tr>
+            <tr><td class="k">Deletion test</td><td>Boot and test with each optional module disabled</td><td>Build with its feature package removed</td><td>Runtime coupling that static checks can't see</td></tr>
+            <tr><td class="k">Ratchet</td><td>The <code>ignore_imports</code> list may only shrink</td><td>A lint baseline that may only shrink</td><td>Old violations, tracked as debt instead of hidden</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>The deletion test</h3>
+      <p>For each optional module, in CI:</p>
+      <ol>
+        <li>Remove it from <code>ENABLED_MODULES</code>, or delete its folder and its one registration line.</li>
+        <li>Boot the API and the worker.</li>
+        <li>Run the import contracts, the type checks and every other module's tests.</li>
+        <li>Build the web app without its feature package.</li>
+      </ol>
+      <p>If all four pass, the module is removable, and the claim in the header holds for it. A failure points at the hidden coupling. The test also marks which modules are core: those are the ones whose removal is allowed to fail the build.</p>
+      <p class="note">uv gives the whole workspace one environment, so a module can import a package it never declared and the code still runs until the day it's extracted. That is why deptry sits next to import-linter. The uv docs say workspaces don't suit members that need “a separate virtual environment for each member”.</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="compose">
+      <h2><span class="n">8</span>Composition and plugins</h2>
+      <p>Pluggability needs one place where modules are switched on. That place is the composition root: the only code that knows which modules and adapters exist. Modules can be switched at three points, each with its own mechanism.</p>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>When</th><th>Mechanism</th><th>Removal</th><th>Use for</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Build</td><td>Workspace membership in uv and pnpm</td><td>Delete the member and its registration line</td><td>Modules that are part of the product</td></tr>
+            <tr><td class="k">Boot</td><td>A config list, or Python entry points discovered with <code>importlib.metadata</code></td><td>Take it out of <code>ENABLED_MODULES</code></td><td>Editions, per-customer deployments, optional integrations</td></tr>
+            <tr><td class="k">Run</td><td>OpenFeature flags</td><td>Flip the flag</td><td>Gradual rollout, kill switches, experiments</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pair">
+<pre><span class="c"># kernel/modules.py: the one interface every module implements</span>
+class Module(Protocol):
+    name: str
+    def register(self, app: FastAPI, kernel: Kernel) -> None: ...
+
+<span class="c"># apps/api/main.py: the composition root</span>
+def create_app(settings: Settings) -> FastAPI:
+    app = FastAPI()
+    kernel = Kernel.from_settings(settings)   <span class="c"># builds every adapter</span>
+    for module in discover("product.modules", settings.enabled_modules):
+        module.register(app, kernel)          <span class="c"># routers, handlers, tools</span>
+    return app</pre>
+<pre><span class="c"># modules/billing/pyproject.toml: how a module announces itself</span>
+[project]
+name = "billing"
+dependencies = ["kernel", "catalog"]
+
+[project.entry-points."product.modules"]
+billing = "billing.module:BillingModule"
+
+[tool.uv.sources]
+kernel = { workspace = true }
+catalog = { workspace = true }</pre>
+      </div>
+      <p>Entry points are the Python packaging standard for plugin discovery (<a href="https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/">packaging guide</a>). The same mechanism lets a module live outside the repository later, installed as a package, with no change to the root.</p>
+      <p><strong>Dependency injection:</strong> the composition root is a pattern, not a framework. <code>create_app()</code> builds adapters from config and hands them to modules, and FastAPI's <code>Depends</code> covers per-request wiring. Add a container such as dishka 1.10, svcs 26.2 or wireup 2.12 only when the object graph no longer fits on a page.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="web">
+      <h2><span class="n">9</span>Next.js as a composition shell</h2>
+      <p>The same rules apply in front. Next.js “is unopinionated about how you organize and colocate your project files” (<a href="https://nextjs.org/docs/app/getting-started/project-structure">project structure docs</a>), so the module boundaries must come from you.</p>
+      <pre class="tree">apps/web/
+├─ app/(shop)/orders/page.tsx   composes @product/features-orders; nothing else
+├─ app/api/chat/route.ts        streams from the Python agent
+├─ proxy.ts                     auth redirects (middleware.ts before Next.js 16)
+└─ features.config.ts           the list of enabled features: the web composition root
+packages/features/orders/
+├─ index.ts                     client-safe public API
+├─ index.server.ts              server-only exports, such as data loaders
+├─ manifest.ts                  the nav entries, routes and flags it contributes
+└─ _internal/                   components and hooks nobody else imports</pre>
+      <ul>
+        <li><strong>Routes compose; features implement.</strong> A page imports from feature packages and passes data down. The navigation is built from the enabled features' manifests, so removing a feature is one line in <code>features.config.ts</code> plus its route folder.</li>
+        <li><strong>Split each feature's public API by environment.</strong> Feature-Sliced Design's Next.js guide explains why: “If a server-only module is exported from <code>index.ts</code>, server-only side effects can propagate into the client module graph when a Client Component imports that slice” (<a href="https://feature-sliced.design/docs/guides/tech/with-nextjs">FSD with Next.js</a>).</li>
+        <li><strong>Next.js is the backend for the browser.</strong> Server Components call the generated client on the server, holding the session and keeping tokens out of the browser. Client components go through route handlers or server actions. <code>proxy.ts</code> replaced middleware in Next.js 16 and defaults to Node.js, but the docs warn against relying on it alone: check authorisation inside each server function, and in the API behind it (<a href="https://nextjs.org/docs/app/api-reference/file-conventions/proxy">proxy</a>).</li>
+        <li><strong>Feature-Sliced Design or plain features?</strong> FSD gives a ready-made layer rule (app → pages → widgets → features → entities → shared) and a linter. Plain feature packages that mirror the backend modules are simpler. Start plain; adopt FSD's layers when many widgets start combining several features.</li>
+        <li><strong>No micro-frontends inside a monolith.</strong> If separate teams later need separate deploys, Next.js multi-zones split the site by path into independent apps (<a href="https://nextjs.org/docs/app/guides/multi-zones">multi-zones</a>).</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section id="ai">
+      <h2><span class="n">10</span>The GenAI plane</h2>
+      <p>Generative AI adds no new architectural principle. It applies the same ones under much more pressure: the model is the most volatile dependency a product has ever had, and it is also non-deterministic, slow, expensive per call and open to manipulation through its input.</p>
+
+      <h3 id="ai-forces"><span class="n">10.1</span>What AI changes</h3>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Force</th><th>What it does to the design</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Churn</td><td>The model sits behind an alias and a gateway, so a swap is config plus an eval run. Pydantic AI keeps its v2 core small for this reason: “the field moves fast enough that committing further out means committing to decisions that fit today and not the world three months from now” (<a href="https://pydantic.dev/articles/pydantic-ai-v2">2026-06-23</a>).</td></tr>
+            <tr><td class="k">Non-determinism</td><td>Evals replace exact-match tests as the check on AI modules, and traces become the debugger.</td></tr>
+            <tr><td class="k">Latency</td><td>Responses stream through every layer (SSE), and the UI speaks a streaming protocol.</td></tr>
+            <tr><td class="k">Multi-step, long-running</td><td>Durable execution, with human approval as a step that can wait for days.</td></tr>
+            <tr><td class="k">Cost per call</td><td>Budgets per tenant at the gateway; routing and caching become cost controls.</td></tr>
+            <tr><td class="k">Attack surface</td><td>Tools inherit module permissions; each tool sees only its own context; writes need approval.</td></tr>
+            <tr><td class="k">AI writes the code</td><td>Boundaries must fail the build (§7), because agents default to monolithic code. A per-module <code>AGENTS.md</code> keeps an agent's context small.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="models"><span class="n">10.2</span>Model plane: aliases, gateway, router</h3>
+      <p>Three different things get called a “model router”. Keep them apart so each can change alone.</p>
+      <figure>
+        <div class="fig">
+          <svg class="dg p3" viewBox="0 0 1000 366" role="img" aria-label="The model plane. Module code asks for a capability alias such as chat.reason. A provider abstraction in the process, Pydantic AI or AI SDK 7, gives one API for many providers. A gateway in its own process holds keys, budgets, rate limits, fallbacks, caching and logs, and contains the routing policy that maps aliases to models by task, with a fallback chain, adding learned routing only with evidence. The gateway calls hosted model APIs and open-weight models on your own GPUs. Below, evals and traces feed evidence back into the routing policy.">
+            <defs>
+              <marker id="p3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+              <marker id="p3b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="aha"/></marker>
+              <marker id="p3c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ahm"/></marker>
+            </defs>
+            <text class="lay" x="20" y="28">1 · WHAT CODE ASKS</text>
+            <text class="lay" x="236" y="28">2 · SDK ABSTRACTION</text>
+            <text class="lay" x="462" y="28">3 · GATEWAY AND POLICY</text>
+            <text class="lay" x="768" y="28">PROVIDERS</text>
+
+            <rect class="bx" x="20" y="90" width="180" height="100" rx="6"/>
+            <text class="t" x="36" y="116">Module code</text>
+            <text class="sm" x="36" y="142">model("chat.reason")</text>
+            <text class="s" x="36" y="166">asks for a capability,</text>
+            <text class="s" x="36" y="181">never a model ID</text>
+            <path class="e" d="M200,140 H234" marker-end="url(#p3a)"/>
+
+            <rect class="bx" x="236" y="90" width="190" height="100" rx="6"/>
+            <text class="t" x="252" y="116">Provider abstraction</text>
+            <text class="s" x="252" y="140">in process, one API</text>
+            <text class="s" x="252" y="156">Pydantic AI · AI SDK 7</text>
+            <text class="s" x="252" y="172">FallbackModel · registry</text>
+            <path class="e" d="M426,140 H460" marker-end="url(#p3a)"/>
+
+            <rect class="bx" x="462" y="40" width="270" height="200" rx="6"/>
+            <text class="t" x="478" y="66">Gateway, its own process</text>
+            <text class="s" x="478" y="88">keys · budgets · rate limits</text>
+            <text class="s" x="478" y="104">fallbacks · caching · request logs</text>
+            <text class="s" x="478" y="120">LiteLLM proxy · agentgateway · hosted</text>
+            <rect class="bxa" x="478" y="136" width="238" height="90" rx="5"/>
+            <text class="ta" x="490" y="158">Routing policy</text>
+            <text class="sm" x="490" y="180">alias → model, by task</text>
+            <text class="sm" x="490" y="198">then a fallback chain</text>
+            <text class="sm" x="490" y="216">learned: only with evidence</text>
+
+            <path class="e" d="M732,124 L766,94" marker-end="url(#p3a)"/>
+            <path class="e" d="M732,156 L766,186" marker-end="url(#p3a)"/>
+            <rect class="bx2" x="768" y="60" width="212" height="64" rx="5"/>
+            <text class="t" x="784" y="86">Hosted model APIs</text>
+            <text class="s" x="784" y="106">several vendors, one alias</text>
+            <rect class="bx2" x="768" y="156" width="212" height="64" rx="5"/>
+            <text class="t" x="784" y="182">Open-weight models</text>
+            <text class="s" x="784" y="202">served on your own GPUs</text>
+
+            <rect class="bxd" x="236" y="286" width="744" height="60" rx="6"/>
+            <text class="t" x="252" y="312">Evals + traces</text>
+            <text class="s" x="252" y="332">every alias change runs the eval suite; traces (OpenTelemetry GenAI conventions) become new cases</text>
+            <path class="ea" d="M597,286 V230" marker-end="url(#p3b)"/>
+            <text class="la" x="608" y="264">evidence</text>
+            <path class="em" d="M874,222 V284" marker-end="url(#p3c)"/>
+            <text class="l" x="886" y="258">traces</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 3.</b> The model plane. Code names a capability; the SDK hides provider shapes; the gateway holds keys and policy; evals decide what the policy may change. Each layer can be replaced without touching the others.</figcaption>
+      </figure>
+      <ul>
+        <li><strong>Aliases are the atom.</strong> Both ecosystems support them: AI SDK 7's <code>customProvider</code> and <code>createProviderRegistry</code> map friendly names to models (<a href="https://ai-sdk.dev/docs/ai-sdk-core/provider-management">docs</a>), and Pydantic AI has provider-prefixed model names and a <code>FallbackModel</code> that also falls back on response conditions (<a href="https://pydantic.dev/docs/ai/models/overview/">docs</a>).</li>
+        <li><strong>The gateway is a separate process.</strong> It holds every provider key, enforces per-tenant budgets and rate limits, and logs every call. LiteLLM (SDK and proxy, 100+ providers) and agentgateway (Linux Foundation; proxies LLM, MCP and A2A traffic) are open-source options; hosted gateways are adapters too.</li>
+        <li><strong>Start with static routing.</strong> RouteLLM reported cutting costs “by over 2 times in certain cases” without losing quality (<a href="https://arxiv.org/abs/2406.18665">2024, self-reported</a>). But LLMRouterBench, 400K+ instances across 33 models, found that “many routing methods exhibit similar performance under unified evaluation, and several recent approaches, including commercial routers, fail to reliably outperform a simple baseline” (<a href="https://arxiv.org/abs/2601.07206">2026-01-12</a>). A 2026 survey notes that “practical systems are often compositional” (<a href="https://arxiv.org/abs/2603.04445">Moslem and Kelleher</a>). So route by task with a fallback chain, measure, and add a learned router only when your own evals show it wins.</li>
+        <li><strong>What an alias can't hide.</strong> Embeddings: changing the model means re-embedding the corpus, because vectors from different models aren't comparable (lab 01's two toy vendors share a vector length but not a space). Prompts are tuned to a model, so every alias change reruns the evals. Capabilities differ, including tool calling, structured output, context length and reasoning controls. Price and latency profiles differ too.</li>
+        <li><strong>The gateway is a prime target.</strong> On 2026-03-24, litellm 1.82.7 and 1.82.8 were published to PyPI with a credential stealer and were live for about 40 minutes. The maintainers believe the attack came through a dependency in their CI, and users of the official proxy Docker image, which pins its dependencies, were not affected (<a href="https://docs.litellm.ai/blog/security-update-march-2026">LiteLLM</a>). Run the gateway as a pinned image in its own process holding only its own secrets, install by hash (<code>uv.lock</code> records hashes), and keep it behind your port so it can be replaced.</li>
+      </ul>
+
+      <h3 id="ai-modules"><span class="n">10.3</span>AI features as modules</h3>
+      <ul>
+        <li><strong>An assistant is a module like any other.</strong> Its tools are the <code>tools.py</code> faces of other modules: thin wrappers over their public APIs, called with the end user's identity. The agent can do only what the API allows that user to do, and removing a module removes its tools.</li>
+        <li><strong>Protocols at the edges, not inside.</strong> MCP exposes tools to agents outside the product; the current spec is 2026-07-28, which negotiates the version on each request and adds a <code>server/discover</code> call (<a href="https://modelcontextprotocol.io/specification/versioning">versioning</a>). A2A reached v1.0 in March 2026 and joined the Agentic AI Foundation on 2026-08-17; use it only when other systems' agents delegate whole tasks to yours (<a href="https://aaif.io/blog/a2a-joins-aaif">AAIF</a>). AG-UI standardises agent-to-UI events (<a href="https://docs.ag-ui.com/introduction">AG-UI</a>). Inside one process, a function call beats any protocol.</li>
+        <li><strong>The frameworks follow the same pattern.</strong> Pydantic AI v2 keeps a small core and moves memory, guardrails and context management into capabilities and a separate Harness package. AI SDK 7 (<a href="https://vercel.com/blog/ai-sdk-7">2026-06-25</a>) adds WorkflowAgent for durable agents and HarnessAgent for running Claude Code, Codex or Pi behind the same UI hooks. Treat the framework as an adapter as well: keep its types inside the assistant module.</li>
+        <li><strong>Reusable agent know-how is a plugin.</strong> Agent Skills, a <code>SKILL.md</code> folder that an agent loads only when a task needs it, is an open format that started at Anthropic and is now supported by many agent products (<a href="https://agentskills.io/">agentskills.io</a>).</li>
+        <li><strong>Start simple.</strong> “Start with simple prompts, optimize them with comprehensive evaluation, and add multi-step agentic systems only when simpler solutions fall short” (<a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic, 2024-12-19</a>). Routing is one of the workflow patterns listed there.</li>
+      </ul>
+
+      <h3 id="durable"><span class="n">10.4</span>Long-running work</h3>
+      <p>Agents that run for minutes or days, wait for a person, or call unreliable tools need their progress checkpointed so a restart resumes instead of repeating. Pydantic AI v2 ships durable execution on Temporal, DBOS and Prefect, and Restate integrates through its own SDK (<a href="https://pydantic.dev/docs/ai/capabilities/durable_execution/overview/">docs</a>). DBOS is a library that checkpoints workflows to Postgres, in Python, TypeScript, Go and Java (<a href="https://docs.dbos.dev/">DBOS</a>), so a monolith gets durability without new infrastructure. Temporal is the stronger choice once workflows cross many services or teams. Run a bake-off with your own workloads before committing to either.</p>
+
+      <h3 id="evals"><span class="n">10.5</span>Evals and tracing</h3>
+      <ul>
+        <li><strong>Evals are the tests for AI modules:</strong> a dataset of cases plus scorers, run in CI on every prompt, model or alias change, with thresholds that fail the build.</li>
+        <li><strong>Traces follow OpenTelemetry.</strong> The GenAI semantic conventions cover model, agent and MCP spans, but their status is still Development (<a href="https://github.com/open-telemetry/semantic-conventions-genai">repo</a>), so pin a version. Observability products are then adapters behind OTel, and AI SDK 7 rebuilt its telemetry around one integration system.</li>
+        <li><strong>Close the loop:</strong> failures found in production traces become new eval cases.</li>
+      </ul>
+
+      <h3 id="ai-security"><span class="n">10.6</span>Security</h3>
+      <ul>
+        <li><strong>Authorise at the module API, not in the prompt.</strong> Tools call APIs as the end user, so a manipulated model can't exceed that user's rights.</li>
+        <li><strong>Scope context per tool.</strong> AI SDK 7's typed tool context is “limited to the tool to prevent 3rd-party tools from accessing context they do not need” (<a href="https://vercel.com/blog/ai-sdk-7">AI SDK 7</a>).</li>
+        <li><strong>Require approval for side effects.</strong> Durable workflows make approval a step that can wait.</li>
+        <li><strong>Treat model output as untrusted input.</strong> Prompt injection has no complete fix, so design for containment: least privilege, approvals and audit logs.</li>
+      </ul>
+    </section>
+
+    <!-- 11 -->
+    <section id="evolve">
+      <h2><span class="n">11</span>Scale and extraction</h2>
+      <p>A modular monolith scales out as it is: stateless API replicas behind a load balancer, workers pulling from queues, and Postgres scaled up, then out with replicas. You extract a module only when a trigger fires:</p>
+      <ul>
+        <li>its scaling profile differs sharply, for example it needs GPUs;</li>
+        <li>a separate team needs its own release cadence;</li>
+        <li>its failures must not take down the rest;</li>
+        <li>it needs a different runtime or language.</li>
+      </ul>
+      <p>Extraction is then mechanical. The port stays the same, and its adapter changes from an in-process call to an HTTP or queue client. Events already flow through the outbox and the schema already belongs to the module, so callers don't change.</p>
+      <p><strong>A framework is no substitute for the pattern.</strong> Google's Service Weaver let teams write one modular binary and deploy it as services. It entered maintenance mode on 2024-12-05 and has since been archived, because “it was hard for users to adopt Service Weaver directly since it required rewriting large parts of existing applications” (<a href="https://github.com/ServiceWeaver/weaver">repo notice</a>).</p>
+      <p><strong>The research base is thin.</strong> The first systematic review of modular monoliths found only 15 primary studies, and lists “the absence of consensus on a clear comprehensive definition, limited empirical benchmarking, and insufficient tools support” as the main gaps (<a href="https://doi.org/10.3390/fi17110496">Al-Qora'n and Al-Said Ahmad, 2025-10-29</a>). An earlier grey-literature review drew on 64 practitioner sources (<a href="https://arxiv.org/abs/2401.11867">Su and Li, 2024</a>). Most of what is known comes from practitioners' experience at companies such as Shopify and Kraken, and from the Spring Modulith project.</p>
+    </section>
+
+    <!-- 12 -->
+    <section id="breaks">
+      <h2><span class="n">12</span>What breaks</h2>
+      <div class="tw">
+        <table class="wide">
+          <thead><tr><th>Failure</th><th>How it shows</th><th>Guard</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Shared tables</td><td>A schema change in one module breaks another module's query</td><td>A schema per module, no cross-schema joins, optionally a database role per module</td></tr>
+            <tr><td class="k">The “common” package</td><td>A <code>shared</code> or <code>utils</code> package grows until everything depends on it</td><td>The kernel holds interfaces and plumbing only; domain code lives in a module</td></tr>
+            <tr><td class="k">Leaky contracts</td><td>ORM objects or internal enums cross module lines</td><td>Data objects at the API; a protected contract on <code>_internal</code></td></tr>
+            <tr><td class="k">Event spaghetti</td><td>Nobody can say what happens after “order placed”</td><td><code>events.py</code> as the catalogue, a trace span per handler, calls for questions</td></tr>
+            <tr><td class="k">Speculative seams</td><td>Interfaces with one implementation nobody will replace; lowest-common-denominator ports that hide a vendor's strengths</td><td>Seams on volatile axes only; delete ports that never got a second adapter</td></tr>
+            <tr><td class="k">Tools without design</td><td>The linter passes, but code is grouped by vocabulary rather than by how it runs</td><td>The deletion test; group by behaviour. Shopify found developers group code by “semantic clues that in many cases have little relation to how the code actually runs”</td></tr>
+            <tr><td class="k">Erosion by coding agents</td><td>Agent-written code crosses module lines to finish sooner</td><td>Contracts that fail CI, a per-module <code>AGENTS.md</code>, review of every diff that crosses a module line</td></tr>
+            <tr><td class="k">Server code in the browser</td><td>A barrel file drags a server module into a client component</td><td><code>index.server.ts</code> and <code>server-only</code></td></tr>
+            <tr><td class="k">Hidden dependencies</td><td>A module imports a package it never declared; it breaks on extraction</td><td>deptry per workspace member</td></tr>
+            <tr><td class="k">Gateway outage or compromise</td><td>Every AI feature fails, or every provider key leaks</td><td>A fallback provider, process isolation, a pinned image, hash-pinned installs</td></tr>
+            <tr><td class="k">Pre-1.0 dependencies</td><td>A minor version bump breaks the build</td><td>Pin Hey API 0.99 and tach 0.35; treat Turborepo boundaries (experimental) and the OTel GenAI conventions (Development) as unstable</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section id="not-chosen">
+      <h2><span class="n">13</span>Deliberately not chosen</h2>
+      <div class="tw">
+        <table class="mid">
+          <thead><tr><th>Option</th><th>Why not now</th><th>Reopen when</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Microservices from day one</td><td>You pay for a distributed system before you know where the boundaries belong</td><td>A module hits an extraction trigger (§11)</td></tr>
+            <tr><td class="k">Micro-frontends, module federation</td><td>One team and one deploy don't need them</td><td>Teams need independent deploys: multi-zones first</td></tr>
+            <tr><td class="k">“Write once, deploy as services” frameworks</td><td>Adoption needs a rewrite, and the pattern outlives the framework (Service Weaver)</td><td>—</td></tr>
+            <tr><td class="k">Event sourcing everywhere</td><td>A large commitment for every module</td><td>Per module, where history or audit is the product</td></tr>
+            <tr><td class="k">A DI container on day one</td><td>A composition root does the job in a page of code</td><td>The object graph no longer fits on a page</td></tr>
+            <tr><td class="k">GraphQL federation</td><td>A monolith has nothing to federate</td><td>Many clients need different shapes of the same data</td></tr>
+            <tr><td class="k">Learned model routing on day one</td><td>2026 benchmarks show many routers don't beat a simple baseline</td><td>Your own evals show a gain on your traffic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section id="start">
+      <h2><span class="n">14</span>Where to start</h2>
+      <p>Most of the value comes from the first six concepts, marked below. The rest applies them. The ordered list, with progress, lives in the <a href="https://github.com/coast-guide/The-Feed/blob/main/docs/topics/pluggable-monolith.md">topic map</a>.</p>
+      <ol class="path">
+        <li class="core"><b>Where seams go.</b> Information hiding and balanced coupling decide what deserves an interface (§2).</li>
+        <li class="core"><b>Ports and adapters.</b> The mechanism behind every swap; lab 01 already started it (§2).</li>
+        <li class="core"><b>Module anatomy.</b> A public API, private internals and owned data (§4, §6).</li>
+        <li class="core"><b>Enforcement and the deletion test.</b> Boundaries that fail the build (§7).</li>
+        <li class="core"><b>Composition root and plugins.</b> Removal as one line (§8).</li>
+        <li class="core"><b>The model plane.</b> Aliases, a gateway, routing, and what an alias can't hide (§10.2).</li>
+        <li><b>Module communication.</b> Calls, events and the outbox (§5).</li>
+        <li><b>Contract-first frontend.</b> Next.js feature modules on a generated client (§9).</li>
+        <li><b>AI features as modules.</b> Tools over module APIs, with MCP, AG-UI and A2A at the edges (§10.3).</li>
+        <li><b>Evals and tracing.</b> How you know a model or prompt swap is safe (§10.5).</li>
+        <li><b>Durable execution.</b> Long-running agents and approvals (§10.4).</li>
+        <li><b>Extraction.</b> Moving a module out without touching its callers (§11).</li>
+      </ol>
+    </section>
+
+    <!-- 15 -->
+    <section id="open">
+      <h2><span class="n">15</span>Open questions</h2>
+      <p>Each has a recommendation; the owner decides.</p>
+      <ol>
+        <li><strong>FastAPI or Django?</strong> Recommend FastAPI, because Pydantic runs through the whole stack, from HTTP to events to LLM output. Switch to Django 6.1 with Django Ninja if the product is mostly back-office CRUD and admin screens.</li>
+        <li><strong>Where do agents live?</strong> Recommend Python, next to the modules and data, streaming to Next.js over the AI SDK protocol or AG-UI. Switch if the team is mostly TypeScript.</li>
+        <li><strong>Lab 01's home.</strong> Lab 01 (ports and adapters) is general, and it is concept 2 here. Recommend finishing it as this topic's first lab while context engineering keeps linking to it; one lab and one note serve both maps.</li>
+        <li><strong>Lab domain.</strong> Recommend a tiny shop (catalog, orders, billing, assistant): small enough to build fast, and rich enough for calls, events, a vendor port and an AI module.</li>
+      </ol>
+    </section>
+
+    <!-- 16 -->
+    <section id="sources" class="sources">
+      <h2><span class="n">16</span>Sources</h2>
+      <p class="note">Checked on 14 Sep 2026. Versions come from the PyPI and npm registries, the Node.js release index, endoflife.date and the GitHub API on that date. Vendor figures are marked where quoted.</p>
+
+      <h3>Principles and research</h3>
+      <ul>
+        <li><a href="https://doi.org/10.1145/361598.361623">Parnas 1972, decomposing systems into modules</a></li>
+        <li><a href="https://alistair.cockburn.us/hexagonal-architecture/">Cockburn, Hexagonal architecture</a></li>
+        <li><a href="https://coupling.dev/posts/core-concepts/balance/">Khononov, balanced coupling</a> · <a href="https://www.pearson.com/en-us/subject-catalog/p/balancing-coupling-in-software-design-successful-software-architecture-in-general-and-distributed-systems/P200000000372/9780137353576">the book</a></li>
+        <li><a href="https://doi.org/10.3390/fi17110496">Al-Qora'n and Al-Said Ahmad 2025, modular monolith SLR</a></li>
+        <li><a href="https://arxiv.org/abs/2401.11867">Su and Li 2024, modular monolith grey-literature review</a></li>
+        <li><a href="https://arxiv.org/abs/2604.06742">Hu et al. 2026, agents generate monolithic code</a></li>
+        <li><a href="https://arxiv.org/abs/2602.20478">Vasilopoulos 2026, codified context for coding agents (one-system case study)</a></li>
+      </ul>
+
+      <h3>Modular monolith practice</h3>
+      <ul>
+        <li><a href="https://docs.spring.io/spring-modulith/reference/fundamentals.html">Spring Modulith fundamentals</a></li>
+        <li><a href="https://railsatscale.com/2024-01-26-a-packwerk-retrospective/">Shopify, a Packwerk retrospective</a></li>
+        <li><a href="https://blog.europython.eu/kraken-technologies-how-we-organize-our-very-large-pythonmonolith/">Kraken, organising a very large Python monolith</a></li>
+        <li><a href="https://github.com/ServiceWeaver/weaver">Service Weaver maintenance notice</a></li>
+        <li><a href="https://microservices.io/patterns/data/transactional-outbox.html">Transactional outbox</a></li>
+      </ul>
+
+      <h3>Python</h3>
+      <ul>
+        <li><a href="https://docs.astral.sh/uv/concepts/projects/workspaces/">uv workspaces</a></li>
+        <li><a href="https://import-linter.readthedocs.io/en/stable/">import-linter</a> · <a href="https://github.com/tach-org/tach">tach</a> · <a href="https://github.com/fpgmaas/deptry">deptry</a></li>
+        <li><a href="https://fastapi.tiangolo.com/tutorial/bigger-applications/">FastAPI, bigger applications</a> · <a href="https://fastapi.tiangolo.com/advanced/generate-clients/">generating clients</a></li>
+        <li><a href="https://alembic.sqlalchemy.org/en/latest/branches.html">Alembic, multiple bases</a></li>
+        <li><a href="https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/">Python packaging, plugin discovery</a></li>
+        <li><a href="https://docs.dbos.dev/">DBOS</a></li>
+      </ul>
+
+      <h3>Frontend</h3>
+      <ul>
+        <li><a href="https://nextjs.org/blog/next-16">Next.js 16</a> · <a href="https://nextjs.org/blog/next-16-3">Next.js 16.3</a></li>
+        <li><a href="https://nextjs.org/docs/app/getting-started/project-structure">Next.js project structure</a></li>
+        <li><a href="https://nextjs.org/docs/app/getting-started/server-and-client-components">Server and Client Components, server-only</a></li>
+        <li><a href="https://nextjs.org/docs/app/guides/multi-zones">Next.js multi-zones</a></li>
+        <li><a href="https://feature-sliced.design/docs/guides/tech/with-nextjs">Feature-Sliced Design with Next.js</a></li>
+        <li><a href="https://turborepo.dev/docs/reference/boundaries">Turborepo boundaries</a></li>
+        <li><a href="https://github.com/javierbrea/eslint-plugin-boundaries">eslint-plugin-boundaries</a> · <a href="https://github.com/sverweij/dependency-cruiser">dependency-cruiser</a></li>
+        <li><a href="https://heyapi.dev/">Hey API</a> · <a href="https://orval.dev/">Orval</a></li>
+      </ul>
+
+      <h3>Standards</h3>
+      <ul>
+        <li><a href="https://www.cncf.io/projects/openfeature/">OpenFeature (CNCF)</a> · <a href="https://openfeature.dev/">docs</a></li>
+        <li><a href="https://www.cncf.io/projects/cloudevents/">CloudEvents (CNCF)</a></li>
+        <li><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry GenAI conventions</a></li>
+        <li><a href="https://modelcontextprotocol.io/specification/versioning">MCP versioning</a></li>
+        <li><a href="https://aaif.io/blog/a2a-joins-aaif">A2A joins AAIF</a></li>
+        <li><a href="https://docs.ag-ui.com/introduction">AG-UI</a> · <a href="https://agentskills.io/">Agent Skills</a></li>
+      </ul>
+
+      <h3>GenAI</h3>
+      <ul>
+        <li><a href="https://pydantic.dev/articles/pydantic-ai-v2">Pydantic AI v2</a> · <a href="https://pydantic.dev/docs/ai/models/overview/">models and fallback</a> · <a href="https://pydantic.dev/docs/ai/capabilities/durable_execution/overview/">durable execution</a></li>
+        <li><a href="https://vercel.com/blog/ai-sdk-7">AI SDK 7</a> · <a href="https://ai-sdk.dev/docs/ai-sdk-core/provider-management">provider management</a></li>
+        <li><a href="https://github.com/BerriAI/litellm">LiteLLM</a> · <a href="https://github.com/agentgateway/agentgateway">agentgateway</a></li>
+        <li><a href="https://arxiv.org/abs/2406.18665">RouteLLM</a> · <a href="https://arxiv.org/abs/2601.07206">LLMRouterBench</a> · <a href="https://arxiv.org/abs/2603.04445">routing survey</a></li>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic, Building effective agents</a></li>
+        <li><a href="https://docs.litellm.ai/blog/security-update-march-2026">LiteLLM, March 2026 security update</a></li>
+      </ul>
+    </section>
+
+    <footer>
+      v0.1, 14 Sep 2026: first landscape, from web research on 14 Sep 2026. Code is sketched, not yet run; the labs in the topic map will test each claim. Items marked Quarterly or Bake-off should be re-verified before you commit to them.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
