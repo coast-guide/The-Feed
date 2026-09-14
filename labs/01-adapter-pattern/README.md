@@ -36,11 +36,16 @@ From this folder:
 python3 -m step1_direct.search
 python3 -m step1_direct.search_zenith
 diff step1_direct/search.py step1_direct/search_zenith.py
+
+python3 -m step2_port.main
+diff step1_direct/search.py step2_port/search.py
+grep -niE 'acme|zenith' step2_port/search.py || echo "the core names no vendor"
 ```
 
 ## Observations
 
 - **Step 1.** Both versions return the same answers. Switching vendor changed 21 lines, in both core functions: the import, the client, the call shape, the response shape, the batching rule and the error type.
+- **Step 2.** Same answers as step 1. The core's only import is now `typing`. All six pieces of Acme knowledge moved into `acme_adapter.py`, and the choice of vendor moved into `main.py`. Imports point inward: the adapter imports the core's error type, and the core imports neither the adapter nor Acme. The port has two parts, a method and an error type. With `acme.OUTAGE = True` set after indexing, search still answers "search is temporarily unavailable", now through the core's own `EmbedderUnavailable`. The price: one file became three, and 42 lines became 66 for a single vendor. So far the port has only cost; step 3 is where it should pay.
 
 ## Findings
 
